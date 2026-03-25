@@ -1,4 +1,5 @@
 import clientPromise from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
@@ -58,7 +59,7 @@ export async function DELETE(req: Request) {
   const client = await clientPromise
   const db = client.db("hylithhub")
 
-  await db.collection("todos").deleteOne({ _id: id })
+  await db.collection("todos").deleteOne({ _id: new ObjectId(id) })
 
   return Response.json({ success: true })
 }
@@ -71,7 +72,7 @@ export async function PUT(req: Request) {
   const db = client.db("hylithhub")
 
   await db.collection("todos").updateOne(
-    { _id: id },
+    { _id: new ObjectId(id) },
     { $set: { text, completed, updatedAt: new Date() } }
   )
 
