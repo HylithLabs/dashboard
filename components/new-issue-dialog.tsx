@@ -31,10 +31,12 @@ import {
   XIcon,
 } from "lucide-react"
 
-const projectOptions = [
-  { value: "jot", label: "JOT" },
-  { value: "hylith", label: "Hylith" },
-  { value: "docs", label: "Documentation" },
+const priorityOptions = [
+  { value: "no-priority", label: "No priority" },
+  { value: "urgent", label: "Urgent" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
 ] as const
 
 export const issueSchema = z.object({
@@ -42,7 +44,7 @@ export const issueSchema = z.object({
   description: z.string().optional(),
   status: z.literal("in-progress"), // Always In Progress
   priority: z.enum(["no-priority", "urgent", "high", "medium", "low"]),
-  project: z.string().optional(),
+  // project removed
 })
 
 export type Issue = z.infer<typeof issueSchema>
@@ -57,68 +59,52 @@ export function NewIssueDialog({ children, onIssueCreated }: NewIssueDialogProps
   const [open, setOpen] = React.useState(false)
   const [title, setTitle] = React.useState("")
   const [description, setDescription] = React.useState("")
-  // Clean todo - no priority state needed
-  const [project, setProject] = React.useState<typeof projectOptions[number] | null>(null)
+  const [priority, setPriority] = React.useState<typeof priorityOptions[number] | null>(null)
   const [createMore, setCreateMore] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
     if (!title.trim()) {
       toast.error("Please enter an issue title")
       return
     }
-
     setIsSubmitting(true)
-
     const issue: Issue = {
       title: title.trim(),
       description: description.trim(),
-      status: "in-progress", // Always In Progress
-      priority: "medium",
-      project: project?.value,
+      status: "in-progress",
+      priority: priority?.value ?? "medium",
     }
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500))
-
+    await new Promise((resolve) => setTimeout(resolve, 500))
     toast.success("Issue created successfully")
     onIssueCreated?.(issue)
-
     if (createMore) {
-      // Reset form but keep dialog open
       setTitle("")
       setDescription("")
-      setProject(null)
+      setPriority(null)
     } else {
       setOpen(false)
-      // Reset form after close
       setTimeout(() => {
         setTitle("")
         setDescription("")
-        setProject(null)
+        setPriority(null)
       }, 200)
     }
-
     setIsSubmitting(false)
   }
 
-  // Clean todo - no priority selector
-
   return (
     <Drawer open={open} onOpenChange={setOpen} direction={isMobile ? "bottom" : "right"}>
-      <DrawerTrigger asChild>
-        {children || <Button>Add Todo</Button>}
-      </DrawerTrigger>
+      <DrawerTrigger asChild>{children || <Button>Add Todo</Button>}</DrawerTrigger>
       <DrawerContent className="sm:max-w-xl">
         <form onSubmit={handleSubmit} className="flex flex-col h-full">
           <DrawerHeader className="border-b px-4 py-3 flex flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">JOT</span>
-              <span>/</span>
+            <DrawerTitle className="text-lg font-medium flex items-center gap-2">
+              <span className="text-sm text-muted-foreground font-normal">JOT</span>
+              <span className="text-sm text-muted-foreground font-normal">/</span>
               <span>New issue</span>
-            </div>
+            </DrawerTitle>
             <div className="flex items-center gap-1">
               <Button type="button" variant="ghost" size="icon" className="size-7">
                 <Maximize2Icon className="size-4" />
@@ -132,7 +118,6 @@ export function NewIssueDialog({ children, onIssueCreated }: NewIssueDialogProps
           </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Title Input */}
             <div className="space-y-2">
               <Input
                 placeholder="Issue title"
@@ -142,8 +127,6 @@ export function NewIssueDialog({ children, onIssueCreated }: NewIssueDialogProps
                 autoFocus
               />
             </div>
-
-            {/* Description Input */}
             <div className="space-y-2">
               <textarea
                 placeholder="Add description..."
@@ -152,74 +135,30 @@ export function NewIssueDialog({ children, onIssueCreated }: NewIssueDialogProps
                 className="w-full min-h-[100px] resize-none border-0 bg-transparent text-sm placeholder:text-muted-foreground/50 focus:outline-none px-3"
               />
             </div>
-
-            {/* Clean todo - just title and description */}
             <div className="flex flex-wrap items-center gap-2">
-              {/* Project Dropdown only - clean todo */}
+              {/* Priority Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
                     <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 px-2 text-xs">
                       <FolderIcon className="size-3.5" />
-                      {project ? project.label : "Project"}
+                      {priority ? priority.label : "Priority"}
                     </Button>
                   }
                 />
                 <DropdownMenuContent align="start" className="w-40">
-                  {projectOptions.map((option) => (
+                  {priorityOptions.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
-                      onClick={() => setProject(option)}
+                      onClick={() => setPriority(option)}
                       className="gap-2"
                     >
                       <span className="flex-1">{option.label}</span>
-                      {project?.value === option.value && (
+                      {priority?.value === option.value && (
                         <CheckCircle2Icon className="size-4 text-primary" />
                       )}
                     </DropdownMenuItem>
                   ))}
-                  {project && (
-                    <>
-                      <Separator className="my-1" />
-                      <DropdownMenuItem onClick={() => setProject(null)} className="text-muted-foreground">
-                        Remove project
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Project Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 px-2 text-xs">
-                      <FolderIcon className="size-3.5" />
-                      {project ? project.label : "Project"}
-                    </Button>
-                  }
-                />
-                <DropdownMenuContent align="start" className="w-40">
-                  {projectOptions.map((option) => (
-                    <DropdownMenuItem
-                      key={option.value}
-                      onClick={() => setProject(option)}
-                      className="gap-2"
-                    >
-                      <span className="flex-1">{option.label}</span>
-                      {project?.value === option.value && (
-                        <CheckCircle2Icon className="size-4 text-primary" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                  {project && (
-                    <>
-                      <Separator className="my-1" />
-                      <DropdownMenuItem onClick={() => setProject(null)} className="text-muted-foreground">
-                        Remove project
-                      </DropdownMenuItem>
-                    </>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -244,9 +183,9 @@ export function NewIssueDialog({ children, onIssueCreated }: NewIssueDialogProps
                   Cancel
                 </Button>
               </DrawerClose>
-              <Button 
-                type="submit" 
-                size="sm" 
+              <Button
+                type="submit"
+                size="sm"
                 disabled={isSubmitting || !title.trim()}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
