@@ -23,9 +23,12 @@ interface ProjectsContextType {
   projects: Project[]
   selectedProjectId: string | null
   selectProject: (id: string | null) => void
+  activeTab: string
+  setActiveTab: (tab: string) => void
   addProject: (name: string, existingId?: string) => Promise<void>
   deleteProject: (id: string) => Promise<void>
   addTodo: (projectId: string, todo: Omit<Todo, "id" | "projectId" | "createdAt">) => Promise<void>
+  updateTodo: (projectId: string, todoId: string, updates: Partial<Omit<Todo, "id" | "projectId" | "createdAt">>) => Promise<void>
   deleteTodo: (projectId: string, todoId: string) => Promise<void>
   getAllTodos: () => Todo[]
   getCurrentProjectTodos: () => Todo[]
@@ -36,6 +39,7 @@ const ProjectsContext = React.createContext<ProjectsContextType | undefined>(und
 export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = React.useState<Project[]>([])
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null)
+  const [activeTab, setActiveTab] = React.useState<string>("todos")
 
   // Load projects from API
   React.useEffect(() => {
@@ -175,6 +179,26 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const updateTodo = async (projectId: string, todoId: string, updates: Partial<Omit<Todo, "id" | "projectId" | "createdAt">>) => {
+    try {
+      const res = await fetch('/api/todos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: todoId, ...updates }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setProjects(prev => prev.map(p => 
+          p.id === projectId 
+            ? { ...p, todos: p.todos.map(t => t.id === todoId ? { ...t, ...updates } : t) }
+            : p
+        ))
+      }
+    } catch (e) {
+      console.error('Failed to update todo', e)
+    }
+  }
+
   const deleteTodo = async (projectId: string, todoId: string) => {
     try {
       const res = await fetch(`/api/todos?id=${todoId}`, { method: 'DELETE' })
@@ -206,9 +230,12 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         projects,
         selectedProjectId,
         selectProject,
+        activeTab,
+        setActiveTab,
         addProject,
         deleteProject,
         addTodo,
+        updateTodo,
         deleteTodo,
         getAllTodos,
         getCurrentProjectTodos,

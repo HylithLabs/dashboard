@@ -40,11 +40,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:p-0! hover:bg-transparent"
               render={<a href="#" />}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ">
                 <div className="size-6 rounded-full border-2 border-foreground flex items-center justify-center">
                   <div className="size-2 rounded-full bg-foreground" />
                 </div>
-                <span className="text-base font-semibold">Acme Inc.</span>
+                <span className="text-base font-semibold">Hylith Dashboard</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -66,14 +66,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {/* All Todos - Dashboard */}
         <SidebarMenu>
           <SidebarMenuItem>
-            <a 
-              href="/dashboard" 
-              className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-muted transition-colors"
+            <SidebarMenuButton
               onClick={() => selectProject(null)}
+              className="w-full justify-start"
             >
               <LayoutDashboardIcon className="size-4" />
               <span>All Todos</span>
-            </a>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
 

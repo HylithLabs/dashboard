@@ -23,7 +23,7 @@ import { NewProjectDialog } from "./new-project-dialog"
 
 export function NavProjects() {
   const { isMobile } = useSidebar()
-  const { projects, selectedProjectId, selectProject, addProject, deleteProject } = useProjects()
+  const { projects, selectedProjectId, selectProject, setActiveTab, addProject, deleteProject } = useProjects()
   const [contextMenu, setContextMenu] = React.useState<{x:number, y:number, projectId:string} | null>(null);
 
   const [expandedProject, setExpandedProject] = React.useState<string | null>("1");
@@ -78,7 +78,10 @@ export function NavProjects() {
               <SidebarMenu className="ml-6 mt-1 border-l border-border pl-2">
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => {}}
+                    onClick={() => {
+                      selectProject(project.id)
+                      setActiveTab("todos")
+                    }}
                     className="flex items-center gap-2 text-sm"
                   >
                     <CheckSquareIcon className="size-3.5" />
@@ -88,7 +91,10 @@ export function NavProjects() {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => {}}
+                    onClick={() => {
+                      selectProject(project.id)
+                      setActiveTab("notes")
+                    }}
                     className="flex items-center gap-2 text-sm"
                   >
                     <FileTextIcon className="size-3.5" />

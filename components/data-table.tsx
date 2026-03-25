@@ -2,25 +2,6 @@
 
 import * as React from "react"
 import {
-  closestCenter,
-  DndContext,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type UniqueIdentifier,
-} from "@dnd-kit/core"
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
-import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
-import {
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -41,7 +22,6 @@ import { z } from "zod"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Drawer,
   DrawerClose,
@@ -81,7 +61,6 @@ import {
   TabsContent,
 } from "@/components/ui/tabs"
 import { 
-  GripVerticalIcon, 
   CircleCheckIcon, 
   EllipsisVerticalIcon, 
   Columns3Icon, 
@@ -89,14 +68,10 @@ import {
   PlusIcon, 
   ChevronLeftIcon, 
   ChevronRightIcon,
-  TrendingUpIcon,
   CircleDotIcon,
   XCircleIcon,
-  ClockIcon,
   AlertCircleIcon,
   CircleDashedIcon,
-  CircleIcon,
-  CopyIcon,
   SignalHighIcon,
   SignalMediumIcon,
   SignalLowIcon,
@@ -132,6 +107,16 @@ function mapStatus(status: string) {
   return map[status] || "In Progress"
 }
 
+function reverseMapStatus(displayStatus: string): "in-progress" | "done" | "cancelled" | "delayed" {
+  const map: Record<string, "in-progress" | "done" | "cancelled" | "delayed"> = {
+    "In Progress": "in-progress",
+    "Done": "done",
+    "Canceled": "cancelled",
+    "Backlog": "delayed",
+  }
+  return map[displayStatus] || "in-progress"
+}
+
 function mapPriority(priority: string) {
   const map: Record<string, string> = {
     "no-priority": "No priority",
@@ -141,6 +126,17 @@ function mapPriority(priority: string) {
     "low": "Low",
   }
   return map[priority] || "Medium"
+}
+
+function reverseMapPriority(displayPriority: string): "no-priority" | "urgent" | "high" | "medium" | "low" {
+  const map: Record<string, "no-priority" | "urgent" | "high" | "medium" | "low"> = {
+    "No priority": "no-priority",
+    "Urgent": "urgent",
+    "High": "high",
+    "Medium": "medium",
+    "Low": "low",
+  }
+  return map[displayPriority] || "medium"
 }
 
 export const schema = z.object({
@@ -159,12 +155,10 @@ export const schema = z.object({
 
 // Status options for dropdown with Linear-style icons (muted colors)
 const statusOptions = [
-  { value: "Backlog", label: "Backlog", icon: CircleDashedIcon, color: "#6B7280" },
-  { value: "Todo", label: "Todo", icon: CircleIcon, color: "#6B7280" },
   { value: "In Progress", label: "In Progress", icon: CircleDotIcon, color: "#F0B000" },
   { value: "Done", label: "Done", icon: CircleCheckIcon, color: "#5E6AD2" },
   { value: "Canceled", label: "Canceled", icon: XCircleIcon, color: "#FFFFFF" },
-  { value: "Duplicate", label: "Duplicate", icon: CopyIcon, color: "#6B7280" },
+  { value: "Backlog", label: "Backlog", icon: CircleDashedIcon, color: "#6B7280" },
 ] as const
 
 // Priority options for dropdown with Linear-style icons
@@ -184,30 +178,13 @@ const typeColors: Record<string, string> = {
   "Todo": "bg-gray-500/20 text-gray-400 border-gray-500/30",
 }
 
-// Create a separate component for the drag handle
-function DragHandle({ id }: { id: number }) {
-  const { attributes, listeners } = useSortable({ id })
-  return (
-    <Button
-      {...attributes}
-      {...listeners}
-      variant="ghost"
-      size="icon"
-      className="size-7 text-muted-foreground hover:bg-transparent"
-    >
-      <GripVerticalIcon className="size-3 text-muted-foreground" />
-      <span className="sr-only">Drag to reorder</span>
-    </Button>
-  )
-}
-
 interface DataTableProps {
   todos: Todo[]
   selectedProjectId?: string
 }
 
 export function DataTable({ todos, selectedProjectId }: DataTableProps) {
-  const { addTodo, deleteTodo, projects } = useProjects()
+  const { addTodo, deleteTodo, updateTodo, projects } = useProjects()
   const isMobile = useIsMobile()
   
   // Convert todos to table data
@@ -226,41 +203,14 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
 
   const columns: ColumnDef<typeof data[0]>[] = [
     {
-      id: "drag",
-      header: () => null,
-      cell: ({ row }) => <DragHandle id={row.original.id} />,
-    },
-    {
-      id: "select",
-      header: ({ table }) => (
-        <div className="flex items-center justify-center">
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            indeterminate={table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected()}
-            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-            aria-label="Select all"
-          />
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className="flex items-center justify-center">
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        </div>
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
       accessorKey: "header",
       header: "Title",
-      cell: ({ row, table }) => {
+      size: 0,
+      minSize: 150,
+      cell: ({ row }) => {
         const typeClass = typeColors[row.original.type] || typeColors["Todo"];
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-4">
             <Badge variant="outline" className={`text-xs ${typeClass}`}>
               {row.original.type}
             </Badge>
@@ -272,21 +222,24 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: () => <div className="text-right pr-[2px]">Status</div>,
+      size: 100,
+      minSize: 100,
       cell: ({ row, table }) => {
         const status = statusOptions.find(s => s.value === row.original.status) || statusOptions[2]
         const StatusIcon = status.icon
         
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="ghost" size="sm" className="h-7 gap-2 px-2 text-sm">
-                  <StatusIcon className="size-4" style={{ color: status.color }} />
-                  <span>{status.label}</span>
-                </Button>
-              }
-            />
+          <div className="flex justify-end pr-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="ghost" size="sm" className="h-7 gap-2 px-2 text-sm">
+                    <StatusIcon className="size-4" style={{ color: status.color }} />
+                    <span>{status.label}</span>
+                  </Button>
+                }
+              />
             <DropdownMenuContent align="start" className="w-44">
               {statusOptions.map((option) => {
                 const Icon = option.icon
@@ -295,10 +248,14 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
                   <DropdownMenuItem
                     key={option.value}
                     onClick={() => {
-                      const newData = data.map(item =>
-                        item.id === row.original.id ? { ...item, status: option.value } : item
-                      )
-                      // Update would go here
+                      if (row.original.projectId && row.original.todoId) {
+                        updateTodo(
+                          row.original.projectId,
+                          row.original.todoId,
+                          { status: reverseMapStatus(option.value) }
+                        )
+                        toast.success(`Status updated to ${option.label}`)
+                      }
                     }}
                     className="gap-2"
                   >
@@ -310,64 +267,80 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
               })}
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         )
       },
     },
     {
       accessorKey: "priority",
-      header: "Priority",
+      header: () => <div className="text-right">Priority</div>,
+      size: 60,
+      minSize: 60,
       cell: ({ row }) => {
         const priority = priorityOptions.find(p => p.value === row.original.priority) || priorityOptions[3]
         const PriorityIcon = priority.icon
         
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="ghost" size="sm" className="h-7 gap-2 px-2 text-sm">
-                  <PriorityIcon className="size-4 font-bold" style={{ color: priority.color }} />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="start" className="w-44">
-              {priorityOptions.map((option) => {
-                const Icon = option.icon
-                const isSelected = row.original.priority === option.value
-                return (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => {
-                      // Update would go here
-                    }}
-                    className="gap-2"
-                  >
-                    <Icon className="size-4" style={{ color: option.color }} />
-                    <span className="flex-1">{option.label}</span>
-                    {isSelected && <CircleCheckIcon className="size-4 text-primary" />}
-                  </DropdownMenuItem>
-                )
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex justify-end pr-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="ghost" size="sm" className="h-7 gap-2 px-2 text-sm">
+                    <PriorityIcon className="size-4 font-bold" style={{ color: priority.color }} />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="start" className="w-44">
+                {priorityOptions.map((option) => {
+                  const Icon = option.icon
+                  const isSelected = row.original.priority === option.value
+                  return (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => {
+                        if (row.original.projectId && row.original.todoId) {
+                          updateTodo(
+                            row.original.projectId,
+                            row.original.todoId,
+                            { priority: reverseMapPriority(option.value) }
+                          )
+                          toast.success(`Priority updated to ${option.label}`)
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <Icon className="size-4" style={{ color: option.color }} />
+                      <span className="flex-1">{option.label}</span>
+                      {isSelected && <CircleCheckIcon className="size-4 text-primary" />}
+                    </DropdownMenuItem>
+                  )
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )
       },
     },
     {
       id: "actions",
+      header: () => <div className="text-right pr-2"></div>,
+      size: 40,
+      minSize: 40,
       cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="ghost" className="flex size-8 text-muted-foreground" size="icon">
-                <EllipsisVerticalIcon />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            }
-          />
+        <div className="flex justify-end pr-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" className="flex size-8 text-muted-foreground" size="icon">
+                  <EllipsisVerticalIcon />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              }
+            />
           <DropdownMenuContent align="end" className="w-32">
             <DropdownMenuItem onClick={() => {
-              const trigger = document.getElementById(`edit-trigger-${row.original.id}`)
-              if (trigger) trigger.click()
+              const openDrawer = (window as any)[`open-drawer-${row.original.id}`]
+              if (openDrawer) openDrawer()
             }}>Edit</DropdownMenuItem>
             <DropdownMenuItem onClick={() => toast.success("Duplicated")}>Make a copy</DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -382,20 +355,10 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       ),
     },
   ]
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, {}),
-    useSensor(TouchSensor, {}),
-    useSensor(KeyboardSensor, {})
-  )
-
-  const dataIds = React.useMemo<UniqueIdentifier[]>(
-    () => data?.map(({ id }) => id) || [],
-    [data]
-  )
 
   const table = useReactTable({
     data,
@@ -420,22 +383,17 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    defaultColumn: {
+      size: 100,
+      minSize: 50,
+    },
   })
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event
-    if (active && over && active.id !== over.id) {
-      // Drag reorder would go here
-    }
-  }
-
-  const sortableId = React.useId()
 
   return (
     <Tabs defaultValue="outline" className="w-full flex-col justify-start gap-6">
       <div className="flex items-center justify-between px-4 lg:px-6">
         <Label htmlFor="view-selector" className="sr-only">View</Label>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="outline" size="sm"><Columns3Icon />Columns<ChevronDownIcon /></Button>}
@@ -456,6 +414,7 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
                 ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          <div className="flex-1"></div>
           <NewIssueDialog 
             onIssueCreated={(issue: Issue) => {
               const targetProjectId = selectedProjectId || projects[0]?.id
@@ -470,7 +429,7 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
               }
             }}
           >
-            <Button variant="outline" size="sm" className="ml-auto">
+            <Button variant="outline" size="sm">
               <PlusIcon />
               <span className="hidden lg:inline">Add Todo</span>
             </Button>
@@ -479,44 +438,47 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
       </div>
       <TabsContent value="outline" className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
         <div className="overflow-hidden rounded-lg border">
-          <DndContext
-            collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxis]}
-            onDragEnd={handleDragEnd}
-            sensors={sensors}
-            id={sortableId}
-          >
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-muted">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead key={header.id} colSpan={header.colSpan}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(header.column.columnDef.header, header.getContext())}
-                      </TableHead>
+          <Table className="w-full">
+            <TableHeader className="sticky top-0 z-10 bg-muted">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead 
+                      key={header.id} 
+                      colSpan={header.colSpan}
+                      className={header.column.id === "header" ? "w-full" : "w-auto whitespace-nowrap"}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell 
+                        key={cell.id}
+                        className={cell.column.id === "header" ? "w-full" : "w-auto whitespace-nowrap"}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
                     ))}
                   </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody className="**:data-[slot=table-cell]:first:w-8">
-                {table.getRowModel().rows?.length ? (
-                  <SortableContext items={dataIds} strategy={verticalListSortingStrategy}>
-                    {table.getRowModel().rows.map((row) => (
-                      <DraggableRow key={row.id} row={row} />
-                    ))}
-                  </SortableContext>
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                      No todos yet. Click "Add Todo" to create one.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </DndContext>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    No todos yet. Click "Add Todo" to create one.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
         <div className="flex items-center justify-between px-4">
           <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
@@ -560,50 +522,37 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
   )
 }
 
-function DraggableRow({ row }: { row: Row<any> }) {
-  const { transform, transition, setNodeRef, isDragging } = useSortable({ id: row.original.id })
-  return (
-    <TableRow
-      data-state={row.getIsSelected() && "selected"}
-      data-dragging={isDragging}
-      ref={setNodeRef}
-      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-    >
-      {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </TableCell>
-      ))}
-    </TableRow>
-  )
-}
-
-function TodoViewDrawer({ item }: { item: any }) {
+function TodoViewDrawer({ item, open, onOpenChange }: { item: any, open?: boolean, onOpenChange?: (open: boolean) => void }) {
   const isMobile = useIsMobile()
   const [desc, setDesc] = React.useState(item.description || "")
+  const { updateTodo } = useProjects()
+
+  const handleSave = () => {
+    if (item.projectId && item.todoId) {
+      updateTodo(item.projectId, item.todoId, { description: desc })
+      toast.success("Todo updated")
+    }
+    onOpenChange?.(false)
+  }
 
   return (
-    <Drawer direction={isMobile ? "bottom" : "right"}>
+    <Drawer direction={isMobile ? "bottom" : "right"} open={open} onOpenChange={onOpenChange}>
       <DrawerTrigger asChild>
         <Button variant="link" className="w-fit px-0 text-left text-foreground">{item.header}</Button>
       </DrawerTrigger>
-      <button id={`edit-trigger-${item.id}`} className="hidden" />
       <DrawerContent>
         <DrawerHeader className="gap-1">
           <DrawerTitle className="text-2xl font-bold p-5">{item.header}</DrawerTitle>
         </DrawerHeader>
         <div className="flex flex-col h-full p-4">
           <textarea
-            className="text-sm w-full p-3 border rounded min-h-[200px] bg-transparent"
+            className="text-sm w-full p-3 rounded min-h-[600px] bg-transparent border-0 outline-none focus:ring-0 focus:outline-none resize-none placeholder:text-muted-foreground/50"
             placeholder="Add description..."
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
           />
           <div className="flex gap-2 pt-4 mt-auto">
-            <DrawerClose asChild>
-              <Button variant="default">Save</Button>
-            </DrawerClose>
+            <Button variant="default" onClick={handleSave}>Save</Button>
             <DrawerClose asChild>
               <Button variant="outline">Close</Button>
             </DrawerClose>
@@ -615,5 +564,16 @@ function TodoViewDrawer({ item }: { item: any }) {
 }
 
 function TableCellViewer({ item }: { item: any }) {
-  return <TodoViewDrawer item={item} />
+  const [open, setOpen] = React.useState(false)
+  
+  // Expose the open function globally for the edit menu
+  React.useEffect(() => {
+    const key = `open-drawer-${item.id}`
+    ;(window as any)[key] = () => setOpen(true)
+    return () => {
+      delete (window as any)[key]
+    }
+  }, [item.id])
+  
+  return <TodoViewDrawer item={item} open={open} onOpenChange={setOpen} />
 }
