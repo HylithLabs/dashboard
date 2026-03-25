@@ -24,8 +24,8 @@ export async function GET(req: Request) {
   // If an email is supplied, filter projects for that user; otherwise return all
   const query = email ? { userEmail: email } : {}
 
-  const projects: Project[] = await db.collection("projects").find(query).sort({ createdAt: -1 }).toArray()
-  return Response.json({ success: true, data: projects })
+  const projects = await db.collection("projects").find(query).sort({ createdAt: -1 }).toArray()
+  return Response.json({ success: true, data: projects as Project[] })
 }
 
 export async function POST(req: Request) {
