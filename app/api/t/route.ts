@@ -1,4 +1,4 @@
-import clientPromise from "@/lib/mongodb"
+import getClientPromise from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
 export async function GET(req: Request) {
@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     return Response.json({ success: false, message: "Email required" })
   }
 
-  const client = await clientPromise
+  const client = await getClientPromise()
   const db = client.db("hylithhub")
 
   const user = await db.collection("users").findOne({ email })
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     return Response.json({ success: false, message: "Text and email required" })
   }
 
-  const client = await clientPromise
+  const client = await getClientPromise()
   const db = client.db("hylithhub")
 
   const user = await db.collection("users").findOne({ email })
@@ -56,7 +56,7 @@ export async function DELETE(req: Request) {
     return Response.json({ success: false, message: "Todo ID required" })
   }
 
-  const client = await clientPromise
+  const client = await getClientPromise()
   const db = client.db("hylithhub")
 
   await db.collection("todos").deleteOne({ _id: new ObjectId(id) })
@@ -68,7 +68,7 @@ export async function PUT(req: Request) {
   const body = await req.json()
   const { id, text, completed } = body
 
-  const client = await clientPromise
+  const client = await getClientPromise()
   const db = client.db("hylithhub")
 
   await db.collection("todos").updateOne(

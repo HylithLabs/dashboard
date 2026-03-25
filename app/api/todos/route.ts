@@ -1,4 +1,4 @@
-import clientPromise from "@/lib/mongodb"
+import getClientPromise from "@/lib/mongodb"
 import { z } from "zod"
 import { ObjectId } from "mongodb"
 
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url)
     const projectId = url.searchParams.get("projectId")
 
-    const client = await clientPromise
+    const client = await getClientPromise()
     const db = client.db("hylithhub")
 
     const query = projectId ? { projectId } : {}
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     const parsed = todoSchema.parse(body)
 
-    const client = await clientPromise
+    const client = await getClientPromise()
     const db = client.db("hylithhub")
 
     const todo = {
@@ -65,7 +65,7 @@ export async function DELETE(req: Request) {
       return Response.json({ success: false, message: "Todo ID required" }, { status: 400 })
     }
 
-    const client = await clientPromise
+    const client = await getClientPromise()
     const db = client.db("hylithhub")
 
     await db.collection("todos").deleteOne({ _id: new ObjectId(id) })
@@ -84,7 +84,7 @@ export async function PUT(req: Request) {
       return Response.json({ success: false, message: "Todo ID required" }, { status: 400 })
     }
 
-    const client = await clientPromise
+    const client = await getClientPromise()
     const db = client.db("hylithhub")
 
     await db.collection("todos").updateOne(

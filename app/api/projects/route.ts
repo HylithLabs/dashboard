@@ -1,4 +1,4 @@
-import clientPromise from "@/lib/mongodb"
+import getClientPromise from "@/lib/mongodb"
 import { z } from "zod"
 
 // Zod schema for a project (used for validation if needed)
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const email = url.searchParams.get("email")
 
-  const client = await clientPromise
+  const client = await getClientPromise()
   const db = client.db("hylithhub")
 
   // If an email is supplied, filter projects for that user; otherwise return all
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     const parsed = projectSchema.parse(body)
     
-    const client = await clientPromise
+    const client = await getClientPromise()
     const db = client.db("hylithhub")
     
     const newProject: Project = {
@@ -64,7 +64,7 @@ export async function DELETE(req: Request) {
     return Response.json({ success: false, message: "Project ID required" }, { status: 400 })
   }
 
-  const client = await clientPromise
+  const client = await getClientPromise()
   const db = client.db("hylithhub")
   const result = await db.collection("projects").deleteOne({ _id: new (require('mongodb').ObjectId)(id) })
   if (result.deletedCount === 0) {
