@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/sidebar"
 import { EllipsisVerticalIcon, CircleUserRoundIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 export function NavUser({
   user,
@@ -32,13 +34,15 @@ export function NavUser({
     avatar: string
   }
 }) {
+  const router = useRouter()
   const { isMobile } = useSidebar()
-  const [storedEmail, setstoredEmail] = useState("")
 
-  useEffect(() => {
-    const newOne:any = localStorage.getItem("email"); 
-    setstoredEmail(newOne)
-  }, []);
+  const handleLogout = () => {
+    localStorage.removeItem("email")
+    toast.success("Logged out successfully")
+    router.push('/')
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -55,7 +59,7 @@ export function NavUser({
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{user.name}</span>
               <span className="truncate text-xs text-foreground/70">
-                {storedEmail}
+                {user.email}
               </span>
             </div>
             <EllipsisVerticalIcon className="ml-auto size-4" />
@@ -101,7 +105,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
               <LogOutIcon
               />
               Log out

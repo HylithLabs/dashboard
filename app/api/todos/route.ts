@@ -8,17 +8,22 @@ const todoSchema = z.object({
   status: z.enum(["in-progress", "done", "cancelled", "delayed"]),
   priority: z.enum(["no-priority", "urgent", "high", "medium", "low"]),
   projectId: z.string().min(1, "Project ID required"),
+  userEmail: z.string().email().optional(),
 })
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
     const projectId = url.searchParams.get("projectId")
+    const userEmail = url.searchParams.get("userEmail")
 
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
-    const query = projectId ? { projectId } : {}
+    const query: any = {}
+    if (projectId) query.projectId = projectId
+    if (userEmail) query.userEmail = userEmail
+
     const todos = await db.collection("todos").find(query).sort({ createdAt: -1 }).toArray()
 
     return Response.json({ success: true, data: todos })

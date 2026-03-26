@@ -41,12 +41,21 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null)
   const [activeTab, setActiveTab] = React.useState<string>("todos")
 
+  // Track if projects have been loaded to avoid duplicate todo loading
+  const projectsLoadedRef = React.useRef(false)
+
   // Load projects from API
   React.useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/projects')
+        const userEmail = localStorage.getItem("email")
+        console.log('Loading projects for user:', userEmail)
+        if (!userEmail) {
+          console.warn('No user email found in localStorage. Loading all projects.')
+        }
+        const res = await fetch(`/api/projects${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`)
         const json = await res.json()
+        console.log('Projects response:', json)
         if (json.success && Array.isArray(json.data)) {
           const loaded: Project[] = json.data.map((p: any) => ({
             id: p._id ? p._id.toString() : p.id?.toString() ?? Math.random().toString(36).substr(2, 9),
@@ -54,47 +63,79 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
             todos: [],
             notes: 0,
           }))
+          console.log('Projects loaded:', loaded)
           setProjects(loaded)
+          projectsLoadedRef.current = true
           if (!selectedProjectId && loaded.length) {
             setSelectedProjectId(loaded[0].id)
           }
+        } else {
+          console.error('Failed to load projects:', json)
+          // Even if no projects found, mark as loaded so todos can still be attempted
+          projectsLoadedRef.current = true
+          setProjects([])
         }
       } catch (e) {
         console.error('Failed to load projects', e)
+        projectsLoadedRef.current = true
+        setProjects([])
       }
     }
     load()
   }, [])
 
-  // Load todos for all projects
+  // Load todos for all projects - runs once after projects are loaded
   React.useEffect(() => {
+    if (!projectsLoadedRef.current) return
+
     const loadTodos = async () => {
       try {
-        const res = await fetch('/api/todos')
+        const userEmail = localStorage.getItem("email")
+        console.log('Loading todos for user:', userEmail)
+        if (!userEmail) {
+          console.warn('No user email found in localStorage. Loading all todos.')
+        }
+        const res = await fetch(`/api/todos${userEmail ? `?userEmail=${encodeURIComponent(userEmail)}` : ''}`)
         const json = await res.json()
+        console.log('Todos response:', json)
         if (json.success && Array.isArray(json.data)) {
-          const todos: Todo[] = json.data.map((t: any) => ({
-            id: t._id ? t._id.toString() : t.id?.toString() ?? Math.random().toString(36).substr(2, 9),
-            title: t.title,
-            description: t.description,
-            status: t.status,
-            priority: t.priority,
-            projectId: t.projectId?.toString(),
-            createdAt: t.createdAt,
-          }))
-          // Group todos by project
-          setProjects(prev => prev.map(p => ({
-            ...p,
-            todos: todos.filter(t => t.projectId === p.id)
-          })))
+          // Create a map of todos by projectId for efficient lookup
+          const todosByProject: Record<string, Todo[]> = {}
+
+          json.data.forEach((t: any) => {
+            // Ensure projectId is a string for consistent comparison
+            const projectId = String(t.projectId)
+            if (!todosByProject[projectId]) {
+              todosByProject[projectId] = []
+            }
+            todosByProject[projectId].push({
+              id: t._id ? t._id.toString() : t.id?.toString() ?? Math.random().toString(36).substr(2, 9),
+              title: t.title,
+              description: t.description,
+              status: t.status,
+              priority: t.priority,
+              projectId: projectId,
+              createdAt: t.createdAt,
+            })
+          })
+
+          // Update projects with their todos
+          setProjects(prev => {
+            const updated = prev.map(p => ({
+              ...p,
+              todos: todosByProject[p.id] || []
+            }))
+            console.log('Updated projects with todos:', updated)
+            return updated
+          })
+        } else {
+          console.error('Failed to load todos or no todos found:', json)
         }
       } catch (e) {
         console.error('Failed to load todos', e)
       }
     }
-    if (projects.length > 0) {
-      loadTodos()
-    }
+    loadTodos()
   }, [projects.length])
 
   const selectProject = (id: string | null) => {
@@ -117,12 +158,18 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     
     // Otherwise create via API
     try {
+      const userEmail = localStorage.getItem("email")
+      console.log('Creating project with userEmail:', userEmail)
+      if (!userEmail) {
+        console.warn('Creating project without user email - data may not persist after reload')
+      }
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, userEmail }),
       })
       const json = await res.json()
+      console.log('Create project response:', json)
       if (json.success) {
         const newProject: Project = {
           id: json.data.id || json.data._id?.toString(),
@@ -132,6 +179,8 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         }
         setProjects(prev => [...prev, newProject])
         setSelectedProjectId(newProject.id)
+      } else {
+        console.error('Failed to create project:', json)
       }
     } catch (e) {
       console.error('Failed to add project', e)
@@ -155,12 +204,18 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const addTodo = async (projectId: string, todo: Omit<Todo, "id" | "projectId" | "createdAt">) => {
     try {
+      const userEmail = localStorage.getItem("email")
+      console.log('Creating todo with userEmail:', userEmail, 'projectId:', projectId)
+      if (!userEmail) {
+        console.warn('Creating todo without user email - data may not persist after reload')
+      }
       const res = await fetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...todo, projectId }),
+        body: JSON.stringify({ ...todo, projectId, userEmail }),
       })
       const json = await res.json()
+      console.log('Create todo response:', json)
       if (json.success) {
         const newTodo: Todo = {
           id: json.data.id || json.data._id?.toString(),
@@ -168,11 +223,13 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
           projectId,
           createdAt: new Date().toISOString(),
         }
-        setProjects(prev => prev.map(p => 
-          p.id === projectId 
+        setProjects(prev => prev.map(p =>
+          p.id === projectId
             ? { ...p, todos: [...p.todos, newTodo] }
             : p
         ))
+      } else {
+        console.error('Failed to create todo:', json)
       }
     } catch (e) {
       console.error('Failed to add todo', e)

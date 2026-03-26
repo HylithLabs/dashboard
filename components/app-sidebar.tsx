@@ -13,22 +13,49 @@ import {
   SidebarGroupLabel,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
+import { NavUser } from "./nav-user"
+
 import {
   LayoutDashboardIcon,
   SettingsIcon,
   PlusIcon,
   MailIcon,
   ChevronRightIcon,
+  UserPlusIcon,
 } from "lucide-react"
 import { NavProjects } from "./nav-projects"
 import { useProjects } from "./projects-context"
+import { useEffect } from "react"
+import { useState } from "react"
+import Link from "next/link"
 
-const bottomItems = [
-  { title: "Settings", url: "#", icon: SettingsIcon, hasArrow: true },
-]
+const ADMIN_EMAIL = "jotirmoybhowmik1976@gmail.com"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { selectProject } = useProjects()
+
+  const [storedEmail, setstoredEmail] = useState("")
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    const email = localStorage.getItem("email")
+    setstoredEmail(email || "")
+    setIsAdmin(email === ADMIN_EMAIL)
+  }, [])
+
+  // Only show Add User tab for admin
+  const bottomItems = [
+    ...(isAdmin ? [{ title: "Add User", url: "/admin/add-user", icon: UserPlusIcon, hasArrow: false }] : []),
+    { title: "Settings", url: "#", icon: SettingsIcon, hasArrow: true },
+  ]
+
+  const data = {
+    user: {
+      name: "shadcn",
+      email: storedEmail,
+      avatar: "/avatars/shadcn.jpg",
+    },
+  }
   
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -84,21 +111,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {bottomItems.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
-                render={<a href={item.url} className="flex items-center gap-3" />}
-              >
-                <item.icon className="size-4" />
-                <span className="flex-1">{item.title}</span>
-                {item.hasArrow && (
-                  <ChevronRightIcon className="size-3 text-muted-foreground" />
-                )}
-              </SidebarMenuButton>
+                render={
+                  <Link href={item.url} className="flex items-center gap-3">
+                    <item.icon className="size-4" />
+                    <span className="flex-1">{item.title}</span>
+                    {item.hasArrow && (
+                      <ChevronRightIcon className="size-3 text-muted-foreground" />
+                    )}
+                  </Link>
+                }
+              />
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        {/* Footer can be empty or have user info */}
+      <SidebarFooter>
+        <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
   )

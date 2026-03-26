@@ -37,10 +37,11 @@ export function NewProjectDialog({ children, onProjectCreated }: NewProjectDialo
     }
     setIsSubmitting(true)
     try {
+      const userEmail = localStorage.getItem("email")
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: name.trim(), userEmail }),
       })
       const json = await res.json()
       if (json.success) {

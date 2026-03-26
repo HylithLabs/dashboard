@@ -539,7 +539,8 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     const loadData = async () => {
       if (!projectId) return
       try {
-        const response = await fetch(`/api/notes?projectId=${projectId}`)
+        const userEmail = localStorage.getItem("email") || ""
+        const response = await fetch(`/api/notes?projectId=${projectId}&userEmail=${encodeURIComponent(userEmail)}`)
         const data = await response.json()
         if (data.success && data.snapshot) {
           const loadedNotes = data.snapshot.notes || []
@@ -560,13 +561,14 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     if (!projectId) return
     const saveData = async () => {
       try {
+        const userEmail = localStorage.getItem("email") || ""
         const snapshot = { notes, connections, camera, zoom }
         const currentData = JSON.stringify(snapshot)
         if (currentData === lastSavedData.current) return
         const response = await fetch("/api/notes", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId, snapshot }),
+          body: JSON.stringify({ projectId, userEmail, snapshot }),
         })
         const data = await response.json()
         if (data.success) lastSavedData.current = currentData

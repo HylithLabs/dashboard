@@ -5,7 +5,7 @@ import { z } from "zod"
 export const projectSchema = z.object({
   name: z.string().min(1, "Project name required"),
   // Assuming projects are scoped to a user like todos
-  email: z.string().email().optional(),
+  userEmail: z.string().email().optional(),
 })
 
 type Project = z.infer<typeof projectSchema> & {
@@ -32,22 +32,22 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const parsed = projectSchema.parse(body)
-    
+
     const client = await getClientPromise()
     const db = client.db("hylithhub")
-    
+
     const newProject: Project = {
       ...parsed,
       createdAt: new Date(),
     }
-    
+
     const result = await db.collection("projects").insertOne(newProject)
-    return Response.json({ 
-      success: true, 
-      data: { 
+    return Response.json({
+      success: true,
+      data: {
         id: result.insertedId.toString(),
-        name: parsed.name 
-      } 
+        name: parsed.name
+      }
     })
   } catch (error) {
     if (error instanceof z.ZodError) {

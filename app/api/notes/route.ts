@@ -5,14 +5,16 @@ import { z } from "zod"
 // Schema for note document
 const noteSchema = z.object({
   projectId: z.string().min(1, "Project ID is required"),
+  userEmail: z.string().email().optional(),
   snapshot: z.object({}).passthrough(),
 })
 
-// GET /api/notes?projectId=xxx - Fetch notes for a project
+// GET /api/notes?projectId=xxx&userEmail=xxx - Fetch notes for a project
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
     const projectId = url.searchParams.get("projectId")
+    const userEmail = url.searchParams.get("userEmail")
 
     if (!projectId) {
       return Response.json(
@@ -24,7 +26,10 @@ export async function GET(req: Request) {
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
-    const note = await db.collection("notes").findOne({ projectId })
+    const query: any = { projectId }
+    if (userEmail) query.userEmail = userEmail
+
+    const note = await db.collection("notes").findOne(query)
 
     if (!note) {
       return Response.json({
@@ -57,12 +62,16 @@ export async function POST(req: Request) {
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
-    // Upsert the note document
+    // Upsert scoped by projectId + userEmail
+    const matchQuery: any = { projectId: parsed.projectId }
+    if (parsed.userEmail) matchQuery.userEmail = parsed.userEmail
+
     const result = await db.collection("notes").updateOne(
-      { projectId: parsed.projectId },
+      matchQuery,
       {
         $set: {
           projectId: parsed.projectId,
+          userEmail: parsed.userEmail,
           snapshot: parsed.snapshot,
           updatedAt: new Date(),
         },
@@ -90,11 +99,12 @@ export async function POST(req: Request) {
   }
 }
 
-// DELETE /api/notes?projectId=xxx - Delete notes for a project
+// DELETE /api/notes?projectId=xxx&userEmail=xxx - Delete notes for a project
 export async function DELETE(req: Request) {
   try {
     const url = new URL(req.url)
     const projectId = url.searchParams.get("projectId")
+    const userEmail = url.searchParams.get("userEmail")
 
     if (!projectId) {
       return Response.json(
@@ -106,7 +116,10 @@ export async function DELETE(req: Request) {
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
-    await db.collection("notes").deleteOne({ projectId })
+    const query: any = { projectId }
+    if (userEmail) query.userEmail = userEmail
+
+    await db.collection("notes").deleteOne(query)
 
     return Response.json({
       success: true,

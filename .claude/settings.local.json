@@ -12,7 +12,8 @@
       "Bash(PORT=3004 npm run dev)",
       "Bash(tasklist)",
       "Bash(PORT=3005 npm run dev)",
-      "Bash(PORT=3002 npm run dev)"
+      "Bash(PORT=3002 npm run dev)",
+      "Bash(NODE_OPTIONS=\"--no-experimental-fetch\" NEXT_TURBOPACK=0 npm run dev)"
     ]
   }
 }
