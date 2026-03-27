@@ -77,16 +77,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
 
-        {/* Quick Create Button */}
-        <div className="mt-4 flex items-center gap-2">
-          <Button variant="outline" size="sm" className="flex-1 justify-start gap-2 h-9">
-            <PlusIcon className="size-4" />
-            Quick Create
-          </Button>
-          <Button variant="outline" size="icon" className="h-9 w-9">
-            <MailIcon className="size-4" />
-          </Button>
-        </div>
+
       </SidebarHeader>
 
       <SidebarContent className="px-2">

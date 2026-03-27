@@ -65,7 +65,7 @@ function DashboardContent() {
                 {/* Header row */}
                 <div className="flex items-center gap-3 mb-6">
                   <h1 className="text-2xl font-semibold">{pageTitle}</h1>
-                  {showTabs && (
+                  {/* {showTabs && (
                     <div className="flex items-center gap-1 bg-muted rounded-md p-1">
                       {tabs.map(({ key, label, icon: Icon }) => (
                         <button
@@ -82,7 +82,7 @@ function DashboardContent() {
                         </button>
                       ))}
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 {/* Content */}
@@ -91,12 +91,12 @@ function DashboardContent() {
                     {activeTab === "todos" && (
                       <DataTable todos={todosToShow} selectedProjectId={selectedProjectId} />
                     )}
-                    {activeTab === "canvas" && (
+                    {activeTab === "notes" && (
                       <div className="border rounded-lg overflow-hidden" style={{ height: '650px' }}>
                         <CanvasEditor projectId={selectedProjectId} />
                       </div>
                     )}
-                    {activeTab === "notes" && (
+                    {activeTab === "simple-notes" && (
                       <SimpleNotes projectId={selectedProjectId} />
                     )}
                   </>

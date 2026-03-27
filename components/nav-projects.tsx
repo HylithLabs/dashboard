@@ -98,8 +98,20 @@ export function NavProjects() {
                     className="flex items-center gap-2 text-sm"
                   >
                     <FileTextIcon className="size-3.5" />
-                    <span>Notes</span>
+                    <span>Canvas Note</span>
                     <span className="ml-auto text-xs text-muted-foreground">{project.notes}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => {
+                      selectProject(project.id)
+                      setActiveTab("simple-notes")
+                    }}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <FileTextIcon className="size-3.5" />
+                    <span>Normal Note</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

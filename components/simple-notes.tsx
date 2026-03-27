@@ -150,6 +150,12 @@ export function SimpleNotes({ projectId }: { projectId: string }) {
   }
 
   const deleteNote = async (id: string) => {
+    // Prevent deletion of canvas-synced notes from this interface
+    if (id.startsWith("canvas-")) {
+      toast.info("Canvas notes must be deleted from the canvas editor.")
+      return
+    }
+
     try {
       const res = await fetch(`/api/simple-notes?id=${id}`, { method: "DELETE" })
       const json = await res.json()

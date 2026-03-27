@@ -88,6 +88,8 @@ interface NoteBox {
   zIndex: number
   createdAt: number
   updatedAt: number
+  source?: string
+  simpleNoteId?: string
 }
 
 interface CanvasEditorProps {
@@ -659,16 +661,51 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     void saveData()
   }
 
-  const deleteNote = (id: string) => {
+  const deleteNote = async (id: string) => {
+    const noteToDelete = notes.find(n => n.id === id)
+
+    // If it's a synced simple note, delete it from the simple notes DB
+    if (noteToDelete && noteToDelete.source === "simple" && noteToDelete.simpleNoteId) {
+      try {
+        await fetch(`/api/simple-notes?id=${noteToDelete.simpleNoteId}`, { method: "DELETE" })
+        toast.success("Note deleted from both canvas and simple notes.")
+      } catch (error) {
+        toast.error("Failed to delete the note from the simple notes section.")
+        console.error("Error deleting simple note:", error)
+        // Optionally, you might want to stop the deletion process if the sync fails
+        // return;
+      }
+    }
+
     const newNotes = notes.filter(n => n.id !== id)
     setNotes(newNotes)
     setConnections(connections.filter(c => c.fromNoteId !== id && c.toNoteId !== id))
     saveToHistory(newNotes)
-    void saveData()
+    void saveData() // This will sync the canvas state
   }
 
-  const deleteSelectedNotes = () => {
+  const deleteSelectedNotes = async () => {
     if (selectedNotes.size === 0) return
+
+    const notesToDelete = notes.filter(n => selectedNotes.has(n.id))
+    const simpleNotesToDelete = notesToDelete.filter(
+      n => n.source === "simple" && n.simpleNoteId
+    )
+
+    if (simpleNotesToDelete.length > 0) {
+      try {
+        await Promise.all(
+          simpleNotesToDelete.map(n =>
+            fetch(`/api/simple-notes?id=${n.simpleNoteId}`, { method: "DELETE" })
+          )
+        )
+        toast.success("Selected notes deleted from both canvas and simple notes.")
+      } catch (error) {
+        toast.error("Failed to delete some notes from the simple notes section.")
+        console.error("Error deleting simple notes:", error)
+      }
+    }
+
     const newNotes = notes.filter(n => !selectedNotes.has(n.id))
     setNotes(newNotes)
     setConnections(connections.filter(c => !selectedNotes.has(c.fromNoteId) && !selectedNotes.has(c.toNoteId)))
