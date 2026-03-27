@@ -328,16 +328,35 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
   const [darkMode, setDarkMode] = React.useState(true)
   const [connectingFrom, setConnectingFrom] = React.useState<string | null>(null)
   const [tagInput, setTagInput] = React.useState<{ noteId: string; value: string } | null>(null)
-  
+
   const [history, setHistory] = React.useState<NoteBox[][]>([])
   const [historyIndex, setHistoryIndex] = React.useState(-1)
-  
+
   const containerRef = React.useRef<HTMLDivElement>(null)
   const searchInputRef = React.useRef<HTMLInputElement>(null)
   const contextMenuRef = React.useRef<HTMLDivElement>(null)
   const lastSavedData = React.useRef<string | null>(null)
   const noteRefs = React.useRef<Map<string, HTMLTextAreaElement>>(new Map())
   const [containerSize, setContainerSize] = React.useState({ width: 1000, height: 800 })
+  const isInitializing = React.useRef(true)
+
+  // Save data to API
+  const saveData = React.useCallback(async () => {
+    if (!projectId || isInitializing.current) return
+    try {
+      const userEmail = localStorage.getItem("email") || ""
+      const snapshot = { notes, connections, camera, zoom }
+      const currentData = JSON.stringify(snapshot)
+      if (currentData === lastSavedData.current) return
+      const response = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, userEmail, snapshot }),
+      })
+      const data = await response.json()
+      if (data.success) lastSavedData.current = currentData
+    } catch (error) { console.error("Failed to save notes:", error) }
+  }, [notes, connections, camera, zoom, projectId])
 
   const screenToWorld = React.useCallback((screenX: number, screenY: number) => ({
     x: screenX / zoom + camera.x,
@@ -536,48 +555,59 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
   }, [undo, redo, notes, selectedNotes, searchOpen, searchResults, searchIndex, containerSize])
 
   React.useEffect(() => {
+    let isMounted = true
     const loadData = async () => {
       if (!projectId) return
       try {
         const userEmail = localStorage.getItem("email") || ""
         const response = await fetch(`/api/notes?projectId=${projectId}&userEmail=${encodeURIComponent(userEmail)}`)
         const data = await response.json()
+        if (!isMounted) return
         if (data.success && data.snapshot) {
           const loadedNotes = data.snapshot.notes || []
           setNotes(loadedNotes)
           setConnections(data.snapshot.connections || [])
           setCamera(data.snapshot.camera || { x: 0, y: 0 })
           setZoom(data.snapshot.zoom || 1)
-          lastSavedData.current = JSON.stringify(data.snapshot)
+          lastSavedData.current = JSON.stringify({ notes: loadedNotes, connections: data.snapshot.connections || [], camera: data.snapshot.camera || { x: 0, y: 0 }, zoom: data.snapshot.zoom || 1 })
           saveToHistory(loadedNotes)
           toast.success("Notes loaded")
+        } else {
+          // No existing data - reset to empty state
+          setNotes([])
+          setConnections([])
+          setCamera({ x: 0, y: 0 })
+          setZoom(1)
+          lastSavedData.current = null
         }
       } catch (error) { console.error("Failed to load notes:", error) }
+      finally {
+        isInitializing.current = false
+      }
     }
+    // Always load when component mounts, then only reload on projectId change
     loadData()
+    return () => { isMounted = false }
   }, [projectId])
 
   React.useEffect(() => {
     if (!projectId) return
-    const saveData = async () => {
-      try {
-        const userEmail = localStorage.getItem("email") || ""
-        const snapshot = { notes, connections, camera, zoom }
-        const currentData = JSON.stringify(snapshot)
-        if (currentData === lastSavedData.current) return
-        const response = await fetch("/api/notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId, userEmail, snapshot }),
-        })
-        const data = await response.json()
-        if (data.success) lastSavedData.current = currentData
-      } catch (error) { console.error("Failed to autosave:", error) }
-    }
     const intervalId = setInterval(saveData, AUTOSAVE_INTERVAL)
-    window.addEventListener("beforeunload", saveData)
-    return () => { clearInterval(intervalId); window.removeEventListener("beforeunload", saveData); saveData() }
-  }, [notes, connections, camera, zoom, projectId])
+    // Only save on beforeunload if we're actually closing/leaving the page
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      saveData()
+      // Required for some browsers to show the unload confirmation
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      // Don't save on unmount - let the autosave handle it
+      // This prevents overwriting with stale data when switching tabs
+    }
+  }, [saveData])
 
   const snapPosition = (value: number) => snapToGrid ? Math.round(value / GRID_SIZE) * GRID_SIZE : value
   const getMaxZIndex = () => Math.max(0, ...notes.map(n => n.zIndex))
@@ -613,6 +643,8 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     saveToHistory(newNotes)
     setTemplateMenuOpen(false)
     toast.success("Note added")
+    // Trigger immediate save so notes persist on reload
+    void saveData()
   }
 
   const duplicateNote = (noteId: string) => {
@@ -624,6 +656,7 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     setNotes(newNotes)
     saveToHistory(newNotes)
     toast.success("Note duplicated")
+    void saveData()
   }
 
   const deleteNote = (id: string) => {
@@ -631,6 +664,7 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     setNotes(newNotes)
     setConnections(connections.filter(c => c.fromNoteId !== id && c.toNoteId !== id))
     saveToHistory(newNotes)
+    void saveData()
   }
 
   const deleteSelectedNotes = () => {
@@ -641,14 +675,15 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     saveToHistory(newNotes)
     setSelectedNotes(new Set())
     toast.success(`${selectedNotes.size} notes deleted`)
+    void saveData()
   }
 
   const updateNote = (id: string, updates: Partial<NoteBox>) => {
     setNotes(notes.map(n => n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n))
   }
 
-  const bringToFront = (id: string) => updateNote(id, { zIndex: getMaxZIndex() + 1 })
-  const sendToBack = (id: string) => updateNote(id, { zIndex: Math.min(...notes.map(n => n.zIndex)) - 1 })
+  const bringToFront = (id: string) => { updateNote(id, { zIndex: getMaxZIndex() + 1 }); void saveData() }
+  const sendToBack = (id: string) => { updateNote(id, { zIndex: Math.min(...notes.map(n => n.zIndex)) - 1 }); void saveData() }
 
   const moveNoteToHome = (noteId: string) => {
     const note = notes.find(n => n.id === noteId)
@@ -665,6 +700,7 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     saveToHistory(updatedNotes)
     navigateToWorldPosition(newX + note.width / 2, newY + note.height / 2)
     toast.success("Note moved to home area")
+    void saveData()
   }
 
   const moveNoteToCurrentView = (noteId: string) => {
@@ -677,6 +713,7 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     setNotes(updatedNotes)
     saveToHistory(updatedNotes)
     toast.success("Note moved to current view")
+    void saveData()
   }
 
   const goToNote = (noteId: string) => {
@@ -689,11 +726,11 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
 
   const togglePin = (id: string) => {
     const note = notes.find(n => n.id === id)
-    if (note) { updateNote(id, { isPinned: !note.isPinned }); toast.success(note.isPinned ? "Note unpinned" : "Note pinned") }
+    if (note) { updateNote(id, { isPinned: !note.isPinned }); toast.success(note.isPinned ? "Note unpinned" : "Note pinned"); void saveData() }
   }
 
-  const toggleCollapse = (id: string) => { const note = notes.find(n => n.id === id); if (note) updateNote(id, { isCollapsed: !note.isCollapsed }) }
-  const toggleHide = (id: string) => { const note = notes.find(n => n.id === id); if (note) updateNote(id, { isHidden: !note.isHidden }) }
+  const toggleCollapse = (id: string) => { const note = notes.find(n => n.id === id); if (note) { updateNote(id, { isCollapsed: !note.isCollapsed }); void saveData() } }
+  const toggleHide = (id: string) => { const note = notes.find(n => n.id === id); if (note) { updateNote(id, { isHidden: !note.isHidden }); void saveData() } }
 
   const toggleNoteType = (id: string) => {
     const note = notes.find(n => n.id === id)
@@ -706,18 +743,21 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
       const text = note.checklist.map(item => `${item.checked ? '✓' : '○'} ${item.text}`).join('\n')
       updateNote(id, { type: "note", text, checklist: [] })
     }
+    void saveData()
   }
 
   const addChecklistItem = (noteId: string) => {
     const note = notes.find(n => n.id === noteId)
     if (!note) return
     updateNote(noteId, { checklist: [...note.checklist, { id: Date.now().toString(), text: "", checked: false }] })
+    void saveData()
   }
 
   const updateChecklistItem = (noteId: string, itemId: string, updates: Partial<ChecklistItem>) => {
     const note = notes.find(n => n.id === noteId)
     if (!note) return
     updateNote(noteId, { checklist: note.checklist.map(item => item.id === itemId ? { ...item, ...updates } : item) })
+    // Don't save on every keystroke - only on explicit save or blur
   }
 
   const removeChecklistItem = (noteId: string, itemId: string) => {
@@ -726,6 +766,7 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     const newChecklist = note.checklist.filter(item => item.id !== itemId)
     if (newChecklist.length === 0) newChecklist.push({ id: Date.now().toString(), text: "", checked: false })
     updateNote(noteId, { checklist: newChecklist })
+    void saveData()
   }
 
   const addTag = (noteId: string, tag: string) => {
@@ -733,12 +774,14 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     if (!note || note.tags.includes(tag)) return
     updateNote(noteId, { tags: [...note.tags, tag] })
     setTagInput(null)
+    void saveData()
   }
 
   const removeTag = (noteId: string, tag: string) => {
     const note = notes.find(n => n.id === noteId)
     if (!note) return
     updateNote(noteId, { tags: note.tags.filter(t => t !== tag) })
+    void saveData()
   }
 
   const createConnection = (toNoteId: string) => {
@@ -748,6 +791,7 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     setConnections([...connections, { id: Date.now().toString(), fromNoteId: connectingFrom, toNoteId, color: notes.find(n => n.id === connectingFrom)?.color || "#fff" }])
     setConnectingFrom(null)
     toast.success("Notes connected")
+    void saveData()
   }
 
   const exportNotes = () => {
@@ -835,7 +879,10 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
   }
 
   const handleMouseUp = () => {
-    if (draggingNote || resizingNote) saveToHistory(notes)
+    if (draggingNote || resizingNote) {
+      saveToHistory(notes)
+      void saveData()
+    }
     setDraggingNote(null)
     setResizingNote(null)
     setIsDraggingCanvas(false)
@@ -996,14 +1043,14 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
                           <button onClick={() => updateChecklistItem(note.id, item.id, { checked: !item.checked })} className="flex-shrink-0">
                             {item.checked ? <CheckSquare className="size-4" style={{ color: note.color }} /> : <Square className="size-4" style={{ color: textColor, opacity: 0.5 }} />}
                           </button>
-                          <input className={`flex-1 bg-transparent outline-none text-sm ${item.checked ? 'line-through opacity-50' : ''}`} style={{ color: textColor, fontSize: note.fontSize, cursor: 'text' }} value={item.text} placeholder="New item..." onChange={(e) => updateChecklistItem(note.id, item.id, { text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addChecklistItem(note.id) } else if (e.key === 'Backspace' && !item.text && note.checklist.length > 1) { e.preventDefault(); removeChecklistItem(note.id, item.id) } }} />
+                          <input className={`flex-1 bg-transparent outline-none text-sm ${item.checked ? 'line-through opacity-50' : ''}`} style={{ color: textColor, fontSize: note.fontSize, cursor: 'text' }} value={item.text} placeholder="New item..." onChange={(e) => updateChecklistItem(note.id, item.id, { text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addChecklistItem(note.id) } else if (e.key === 'Backspace' && !item.text && note.checklist.length > 1) { e.preventDefault(); removeChecklistItem(note.id, item.id) } }} onBlur={() => void saveData()} />
                           <button className="opacity-0 group-hover/item:opacity-100 text-red-500 flex-shrink-0" onClick={() => removeChecklistItem(note.id, item.id)}><X className="size-3" /></button>
                         </div>
                       ))}
                       <button className="flex items-center gap-2 text-sm opacity-50 hover:opacity-100" style={{ color: textColor }} onClick={() => addChecklistItem(note.id)}><PlusIcon className="size-4" /> Add item</button>
                     </div>
                   ) : (
-                    <textarea ref={(el) => { if (el) noteRefs.current.set(note.id, el) }} className="w-full bg-transparent resize-none outline-none overflow-hidden" style={{ color: textColor, fontSize: note.fontSize, lineHeight: '1.5', minHeight: '50px', cursor: 'text' }} placeholder="Type your note..." value={note.text} onChange={(e) => { updateNote(note.id, { text: e.target.value }); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} onFocus={() => setEditingNote(note.id)} onBlur={() => setEditingNote(null)} rows={1} />
+                    <textarea ref={(el) => { if (el) noteRefs.current.set(note.id, el) }} className="w-full bg-transparent resize-none outline-none overflow-hidden" style={{ color: textColor, fontSize: note.fontSize, lineHeight: '1.5', minHeight: '50px', cursor: 'text' }} placeholder="Type your note..." value={note.text} onChange={(e) => { updateNote(note.id, { text: e.target.value }); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} onFocus={() => setEditingNote(note.id)} onBlur={() => { setEditingNote(null); void saveData() }} rows={1} />
                   )}
 
                   {tagInput?.noteId === note.id && (
@@ -1109,7 +1156,7 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
             onWheel={(e) => e.stopPropagation()}
           >
             {COLORS.map((color) => (
-              <button key={color} className="w-6 h-6 rounded-full border-2 border-white/30 hover:scale-110 transition-transform" style={{ backgroundColor: color }} onClick={() => { updateNote(colorPickerOpen, { color }); setColorPickerOpen(null) }} />
+              <button key={color} className="w-6 h-6 rounded-full border-2 border-white/30 hover:scale-110 transition-transform" style={{ backgroundColor: color }} onClick={() => { updateNote(colorPickerOpen, { color }); setColorPickerOpen(null); void saveData() }} />
             ))}
           </div>
         )}
@@ -1152,7 +1199,7 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
                   <div className="px-3 py-1.5 text-xs text-white/50 uppercase font-semibold bg-white/5">Priority</div>
                   <div className="flex px-3 py-2 gap-1.5">
                     {(["none", "low", "medium", "high", "urgent"] as Priority[]).map(p => (
-                      <button key={p} className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110 ${note.priority === p ? 'border-white scale-110' : 'border-transparent'}`} style={{ backgroundColor: PRIORITY_COLORS[p] || '#333' }} onClick={() => { updateNote(contextMenu.noteId, { priority: p }); setContextMenu(null) }} title={p.charAt(0).toUpperCase() + p.slice(1)}>
+                      <button key={p} className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110 ${note.priority === p ? 'border-white scale-110' : 'border-transparent'}`} style={{ backgroundColor: PRIORITY_COLORS[p] || '#333' }} onClick={() => { updateNote(contextMenu.noteId, { priority: p }); setContextMenu(null); void saveData() }} title={p.charAt(0).toUpperCase() + p.slice(1)}>
                         {note.priority === p && <Check className="size-3 text-white" />}
                       </button>
                     ))}
@@ -1183,7 +1230,7 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
           <div className="absolute bottom-20 left-6 bg-black/50 border border-white/20 rounded-lg px-3 py-2 z-50">
             <div className="flex items-center gap-2 text-sm text-white/70">
               <EyeOff className="size-4" /> {notes.filter(n => n.isHidden).length} hidden
-              <button className="text-blue-400 hover:text-blue-300" onClick={() => setNotes(notes.map(n => ({ ...n, isHidden: false })))}>Show all</button>
+              <button className="text-blue-400 hover:text-blue-300" onClick={() => { setNotes(notes.map(n => ({ ...n, isHidden: false }))); void saveData() }}>Show all</button>
             </div>
           </div>
         )}

@@ -391,7 +391,7 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
 
   return (
     <Tabs defaultValue="outline" className="w-full flex-col justify-start gap-6">
-      <div className="flex items-center justify-between px-4 lg:px-6">
+      <div className="flex items-center justify-between  ">
         <Label htmlFor="view-selector" className="sr-only">View</Label>
         <div className="flex items-center gap-2 w-full">
           <DropdownMenu>
@@ -436,7 +436,7 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
           </NewIssueDialog>
         </div>
       </div>
-      <TabsContent value="outline" className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
+      <TabsContent value="outline" className="relative flex flex-col gap-4 overflow-auto ">
         <div className="overflow-hidden rounded-lg border">
           <Table className="w-full">
             <TableHeader className="sticky top-0 z-10 bg-muted">
