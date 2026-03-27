@@ -97,10 +97,30 @@ interface CanvasEditorProps {
 }
 
 const COLORS = [
-  "#F0B000", "#5E6AD2", "#FF6B6B", "#4ECDC4", "#45B7D1",
-  "#96CEB4", "#FF9F43", "#A29BFE", "#FD79A8", "#00B894",
-  "#636E72", "#2D3436", "#74B9FF", "#FFEAA7", "#DFE6E9",
+  "#6B7280", // slate gray (anchor)
+
+  "#3A5CCC", // muted blue
+  "#2F4F9D", // deep steel blue
+  "#4C6EF5", // controlled indigo
+
+  "#3F8F8B", // muted teal
+  "#2C7A7B", // deep teal
+  "#3B6B7D", // blue-gray
+
+  "#6D5FA6", // dusty purple
+  "#7C6ACF", // soft violet
+
+  "#B7791F", // muted amber
+  "#9C6B30", // warm bronze
+
+  "#4A5568", // cool gray alt
+  "#2D3748", // dark slate
+
+  "#718096", // soft gray 
+  "#2D3436"
 ]
+
+
 
 const PRIORITY_COLORS: Record<Priority, string> = {
   none: "transparent",
