@@ -65,7 +65,7 @@ export function NavProjects() {
               className={selectedProjectId === project.id ? "bg-muted" : undefined}
             >
               <FolderIcon className="size-4" />
-              <span className="flex-1">{project.name}</span>
+              <span className="flex-1 capitalize">{project.name}</span>
               {expandedProject === project.id ? (
                 <ChevronDownIcon className="size-3 text-muted-foreground" />
               ) : (
@@ -75,7 +75,7 @@ export function NavProjects() {
             
             {/* Expanded submenu */}
             {expandedProject === project.id && (
-              <SidebarMenu className="ml-6 mt-1 border-l border-border pl-2">
+              <SidebarMenu className="ml-6 mt-1 border-l border-border pl-2 animate-in fade-in slide-in-from-top-1 duration-200">
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => {

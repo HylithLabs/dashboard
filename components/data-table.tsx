@@ -234,12 +234,12 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <Button variant="ghost" size="sm" className="h-7 gap-2 px-2 text-sm">
-                    <StatusIcon className="size-4" style={{ color: status.color }} />
-                    <span>{status.label}</span>
-                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 gap-2 px-2 text-sm" />
                 }
-              />
+              >
+                <StatusIcon className="size-4" style={{ color: status.color }} />
+                <span>{status.label}</span>
+              </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-44">
               {statusOptions.map((option) => {
                 const Icon = option.icon
@@ -285,11 +285,11 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <Button variant="ghost" size="sm" className="h-7 gap-2 px-2 text-sm">
-                    <PriorityIcon className="size-4 font-bold" style={{ color: priority.color }} />
-                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 gap-2 px-2 text-sm" />
                 }
-              />
+              >
+                <PriorityIcon className="size-4 font-bold" style={{ color: priority.color }} />
+              </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44">
                 {priorityOptions.map((option) => {
                   const Icon = option.icon
@@ -331,12 +331,12 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button variant="ghost" className="flex size-8 text-muted-foreground" size="icon">
-                  <EllipsisVerticalIcon />
-                  <span className="sr-only">Open menu</span>
-                </Button>
+                <Button variant="ghost" className="flex size-8 text-muted-foreground" size="icon" />
               }
-            />
+            >
+              <EllipsisVerticalIcon />
+              <span className="sr-only">Open menu</span>
+            </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-32">
             <DropdownMenuItem onClick={() => {
               const openDrawer = (window as any)[`open-drawer-${row.original.id}`]
@@ -396,8 +396,10 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
         <div className="flex items-center gap-2 w-full">
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="outline" size="sm"><Columns3Icon />Columns<ChevronDownIcon /></Button>}
-            />
+              render={<Button variant="outline" size="sm" />}
+            >
+              <Columns3Icon />Columns<ChevronDownIcon />
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-32">
               {table
                 .getAllColumns()

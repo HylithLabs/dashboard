@@ -67,9 +67,6 @@ export function NewProjectDialog({ children, onProjectCreated }: NewProjectDialo
           <DrawerHeader className="border-b px-4 py-3 flex flex-row items-center justify-between gap-4">
             <DrawerTitle className="text-lg font-medium">Create Project</DrawerTitle>
             <div className="flex items-center gap-1">
-              <Button type="button" variant="ghost" size="icon" className="size-7">
-                <Maximize2Icon className="size-4" />
-              </Button>
               <DrawerClose asChild>
                 <Button type="button" variant="ghost" size="icon" className="size-7">
                   <XIcon className="size-4" />

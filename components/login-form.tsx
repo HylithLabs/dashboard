@@ -31,6 +31,7 @@ export function LoginForm({
       }); 
       if(response.data.success) {
         localStorage.setItem('email', response.data.data.email); 
+        localStorage.setItem('role', response.data.data.role);
         sessionStorage.setItem('justLoggedIn', 'true');
         
         router.push("/dashboard")

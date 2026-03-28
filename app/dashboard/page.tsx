@@ -9,8 +9,12 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { CheckSquareIcon, FileTextIcon, LayoutIcon } from "lucide-react"
+import { CheckSquareIcon, FileTextIcon, LayoutIcon, UsersIcon, ShieldCheckIcon, UserPlusIcon } from "lucide-react"
 import { SimpleNotes } from "@/components/simple-notes"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { UsersTable } from "@/components/users-table"
+import { RolesManagement } from "@/components/roles-management"
+import { AddUserForm } from "@/components/add-user-form"
 
 const CanvasEditor = dynamic(
   () => import("@/app/notes/CanvasEditor").then((mod) => mod.CanvasEditor),
@@ -18,7 +22,7 @@ const CanvasEditor = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex items-center justify-center h-full w-full bg-background">
-        <div className="text-muted-foreground">Loading canvas...</div>
+        <div className="text-muted-foreground animate-pulse">Loading canvas...</div>
       </div>
     ),
   }
@@ -28,10 +32,14 @@ function DashboardContent() {
   const router = useRouter()
   const { selectedProjectId, projects, getAllTodos, getCurrentProjectTodos, activeTab, setActiveTab } = useProjects()
   const [isLoaded, setIsLoaded] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const storedEmail = localStorage.getItem("email")
+    const storedRole = localStorage.getItem("role")
+    
     if (storedEmail && storedEmail !== "undefined") {
+      setIsAdmin(storedEmail === "jotirmoybhowmik1976@gmail.com" || storedRole === "admin")
       const justLoggedIn = sessionStorage.getItem("justLoggedIn")
       if (justLoggedIn) {
         toast.success("Login successful")
@@ -49,14 +57,16 @@ function DashboardContent() {
   const pageTitle = project?.name || 'All Todos'
 
   const todosToShow = selectedProjectId ? getCurrentProjectTodos() : getAllTodos()
-  const showTabs = !!selectedProjectId
+  const showTabs = !!selectedProjectId || activeTab === "users"
 
   const tabs = [
     { key: "todos", label: "Todos", icon: CheckSquareIcon },
     { key: "notes", label: "Canvas", icon: LayoutIcon },
     { key: "simple-notes", label: "Notes", icon: FileTextIcon },
+    ...(isAdmin ? [{ key: "users", label: "Users", icon: UsersIcon }] : [])
   ]
 
+  const isUsersTab = activeTab === "users" && isAdmin
   const isCanvasMode = activeTab === "notes" && showTabs
 
   return (
@@ -71,17 +81,19 @@ function DashboardContent() {
 
                 {/* Header row */}
                 <div className="flex items-center justify-between mb-6 flex-shrink-0">
-                  <h1 className="text-2xl font-semibold">{pageTitle}</h1>
-                  {showTabs && (
-                    <div className="flex items-center gap-1 bg-muted rounded-md p-1">
+                  <h1 className="text-2xl font-semibold capitalize tracking-tight">
+                    {isUsersTab ? "Management Console" : pageTitle}
+                  </h1>
+                  {showTabs && !isUsersTab && (
+                    <div className="flex items-center gap-1 bg-muted/50 border rounded-lg p-1 shadow-sm">
                       {tabs.map(({ key, label, icon: Icon }) => (
                         <button
                           key={key}
                           onClick={() => setActiveTab(key)}
-                          className={`flex items-center gap-1.5 px-3 py-1 rounded text-sm font-medium transition-colors ${
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 capitalize ${
                             activeTab === key
-                              ? "bg-background text-foreground shadow-sm"
-                              : "text-muted-foreground hover:text-foreground"
+                              ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
                           }`}
                         >
                           <Icon className="size-3.5" />
@@ -93,23 +105,66 @@ function DashboardContent() {
                 </div>
 
                 {/* Content */}
-                {showTabs ? (
-                  <div className={`flex-1 flex flex-col ${isCanvasMode ? "overflow-hidden" : ""}`}>
-                    {activeTab === "todos" && (
+                <div className="flex-1 flex flex-col min-h-0">
+                  {activeTab === "todos" && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                       <DataTable todos={todosToShow} selectedProjectId={selectedProjectId} />
-                    )}
-                    {activeTab === "notes" && (
-                      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden relative bg-muted/20">
-                        <CanvasEditor projectId={selectedProjectId} />
-                      </div>
-                    )}
-                    {activeTab === "simple-notes" && (
+                    </div>
+                  )}
+                  {activeTab === "notes" && showTabs && (
+                    <div className="flex-1 min-h-0 border rounded-lg overflow-hidden relative bg-muted/20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <CanvasEditor projectId={selectedProjectId} />
+                    </div>
+                  )}
+                  {activeTab === "simple-notes" && showTabs && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                       <SimpleNotes projectId={selectedProjectId} />
-                    )}
-                  </div>
-                ) : (
-                  <DataTable todos={todosToShow} selectedProjectId={undefined} />
-                )}
+                    </div>
+                  )}
+                  {isUsersTab && (
+                    <div className="flex-1 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <Tabs defaultValue="list" className="space-y-6">
+                        <TabsList className="bg-muted/50 border shadow-sm p-1 h-10">
+                          <TabsTrigger 
+                            value="list" 
+                            className="gap-2 px-4 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                          >
+                            <UsersIcon className="size-3.5" />
+                            Directory
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="roles" 
+                            className="gap-2 px-4 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                          >
+                            <ShieldCheckIcon className="size-3.5" />
+                            Roles
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="add" 
+                            className="gap-2 px-4 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                          >
+                            <UserPlusIcon className="size-3.5" />
+                            Provisioning
+                          </TabsTrigger>
+                        </TabsList>
+                        
+                        <div className="mt-0">
+                          <TabsContent value="list" className="mt-0 focus-visible:outline-none">
+                            <UsersTable />
+                          </TabsContent>
+                          <TabsContent value="roles" className="mt-0 focus-visible:outline-none">
+                            <RolesManagement />
+                          </TabsContent>
+                          <TabsContent value="add" className="mt-0 focus-visible:outline-none">
+                            <div className="max-w-2xl">
+                              <AddUserForm />
+                            </div>
+                          </TabsContent>
+                        </div>
+                      </Tabs>
+                    </div>
+                  )}
+                </div>
 
               </div>
             </div>
