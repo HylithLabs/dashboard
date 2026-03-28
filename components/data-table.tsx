@@ -181,7 +181,7 @@ const typeColors: Record<string, string> = {
 
 interface DataTableProps {
   todos: Todo[]
-  selectedProjectId?: string
+  selectedProjectId?: string | null
 }
 
 export function DataTable({ todos, selectedProjectId }: DataTableProps) {
