@@ -170,7 +170,7 @@ export function UsersTable() {
                   </TableCell>
                   <TableCell>
                     <Select
-                      defaultValue={user.role || "user"}
+                      value={user.role || "user"}
                       onValueChange={(value) => handleRoleChange(user.email, value)}
                       disabled={user.email === "jotirmoybhowmik1976@gmail.com"}
                     >

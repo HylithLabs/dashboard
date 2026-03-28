@@ -7,7 +7,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,9 +19,9 @@ import {
 } from "lucide-react"
 import { useProjects } from "./projects-context"
 import { NewProjectDialog } from "./new-project-dialog"
+import { motion, AnimatePresence } from "framer-motion"
 
 export function NavProjects() {
-  const { isMobile } = useSidebar()
   const { projects, selectedProjectId, selectProject, setActiveTab, addProject, deleteProject } = useProjects()
   const [contextMenu, setContextMenu] = React.useState<{x:number, y:number, projectId:string} | null>(null);
 
@@ -37,6 +36,7 @@ export function NavProjects() {
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, []);
+
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <div className="flex items-center justify-between px-2 mb-2">
@@ -73,49 +73,58 @@ export function NavProjects() {
               )}
             </SidebarMenuButton>
             
-            {/* Expanded submenu */}
-            {expandedProject === project.id && (
-              <SidebarMenu className="ml-6 mt-1 border-l border-border pl-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => {
-                      selectProject(project.id)
-                      setActiveTab("todos")
-                    }}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <CheckSquareIcon className="size-3.5" />
-                    <span>Todos</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{project.todos.length}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => {
-                      selectProject(project.id)
-                      setActiveTab("notes")
-                    }}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <FileTextIcon className="size-3.5" />
-                    <span>Canvas Note</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{project.notes}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => {
-                      selectProject(project.id)
-                      setActiveTab("simple-notes")
-                    }}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <FileTextIcon className="size-3.5" />
-                    <span>Normal Note</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            )}
+            <AnimatePresence initial={false}>
+              {expandedProject === project.id && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <SidebarMenu className="ml-6 mt-1 border-l border-border pl-2">
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        onClick={() => {
+                          selectProject(project.id)
+                          setActiveTab("todos")
+                        }}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <CheckSquareIcon className="size-3.5" />
+                        <span>Todos</span>
+                        <span className="ml-auto text-xs text-muted-foreground">{project.todos.length}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        onClick={() => {
+                          selectProject(project.id)
+                          setActiveTab("notes")
+                        }}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <FileTextIcon className="size-3.5" />
+                        <span>Canvas Note</span>
+                        <span className="ml-auto text-xs text-muted-foreground">{project.notes}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        onClick={() => {
+                          selectProject(project.id)
+                          setActiveTab("simple-notes")
+                        }}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <FileTextIcon className="size-3.5" />
+                        <span>Normal Note</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Context menu for project */}
             {contextMenu && contextMenu.projectId === project.id && (

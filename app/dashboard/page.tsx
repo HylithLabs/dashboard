@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UsersTable } from "@/components/users-table"
 import { RolesManagement } from "@/components/roles-management"
 import { AddUserForm } from "@/components/add-user-form"
+import { motion, AnimatePresence } from "framer-motion"
 
 const CanvasEditor = dynamic(
   () => import("@/app/notes/CanvasEditor").then((mod) => mod.CanvasEditor),
@@ -104,66 +105,73 @@ function DashboardContent() {
                   )}
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 flex flex-col min-h-0">
-                  {activeTab === "todos" && (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <DataTable todos={todosToShow} selectedProjectId={selectedProjectId} />
-                    </div>
-                  )}
-                  {activeTab === "notes" && showTabs && (
-                    <div className="flex-1 min-h-0 border rounded-lg overflow-hidden relative bg-muted/20 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <CanvasEditor projectId={selectedProjectId} />
-                    </div>
-                  )}
-                  {activeTab === "simple-notes" && showTabs && (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <SimpleNotes projectId={selectedProjectId} />
-                    </div>
-                  )}
-                  {isUsersTab && (
-                    <div className="flex-1 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <Tabs defaultValue="list" className="space-y-6">
-                        <TabsList className="bg-muted/50 border shadow-sm p-1 h-10">
-                          <TabsTrigger 
-                            value="list" 
-                            className="gap-2 px-4 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                          >
-                            <UsersIcon className="size-3.5" />
-                            Directory
-                          </TabsTrigger>
-                          <TabsTrigger 
-                            value="roles" 
-                            className="gap-2 px-4 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                          >
-                            <ShieldCheckIcon className="size-3.5" />
-                            Roles
-                          </TabsTrigger>
-                          <TabsTrigger 
-                            value="add" 
-                            className="gap-2 px-4 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                          >
-                            <UserPlusIcon className="size-3.5" />
-                            Provisioning
-                          </TabsTrigger>
-                        </TabsList>
-                        
-                        <div className="mt-0">
-                          <TabsContent value="list" className="mt-0 focus-visible:outline-none">
-                            <UsersTable />
-                          </TabsContent>
-                          <TabsContent value="roles" className="mt-0 focus-visible:outline-none">
-                            <RolesManagement />
-                          </TabsContent>
-                          <TabsContent value="add" className="mt-0 focus-visible:outline-none">
-                            <div className="max-w-2xl">
-                              <AddUserForm />
-                            </div>
-                          </TabsContent>
+                {/* Content with Framer Motion transitions */}
+                <div className="flex-1 flex flex-col min-h-0 relative">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeTab + (selectedProjectId || "")}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="flex-1 flex flex-col min-h-0"
+                    >
+                      {activeTab === "todos" && (
+                        <DataTable todos={todosToShow} selectedProjectId={selectedProjectId} />
+                      )}
+                      {activeTab === "notes" && showTabs && (
+                        <div className="flex-1 min-h-0 border rounded-lg overflow-hidden relative bg-muted/20">
+                          <CanvasEditor projectId={selectedProjectId} />
                         </div>
-                      </Tabs>
-                    </div>
-                  )}
+                      )}
+                      {activeTab === "simple-notes" && showTabs && (
+                        <SimpleNotes projectId={selectedProjectId} />
+                      )}
+                      {isUsersTab && (
+                        <div className="flex-1 flex flex-col gap-6">
+                          <Tabs defaultValue="list" className="space-y-6">
+                            <TabsList className="bg-muted/50 border shadow-sm p-1 h-10">
+                              <TabsTrigger 
+                                value="list" 
+                                className="gap-2 px-4 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                              >
+                                <UsersIcon className="size-3.5" />
+                                Directory
+                              </TabsTrigger>
+                              <TabsTrigger 
+                                value="roles" 
+                                className="gap-2 px-4 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                              >
+                                <ShieldCheckIcon className="size-3.5" />
+                                Roles
+                              </TabsTrigger>
+                              <TabsTrigger 
+                                value="add" 
+                                className="gap-2 px-4 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                              >
+                                <UserPlusIcon className="size-3.5" />
+                                Provisioning
+                              </TabsTrigger>
+                            </TabsList>
+                            
+                            <div className="mt-0">
+                              <TabsContent value="list" className="mt-0 focus-visible:outline-none">
+                                <UsersTable />
+                              </TabsContent>
+                              <TabsContent value="roles" className="mt-0 focus-visible:outline-none">
+                                <RolesManagement />
+                              </TabsContent>
+                              <TabsContent value="add" className="mt-0 focus-visible:outline-none">
+                                <div className="max-w-2xl">
+                                  <AddUserForm />
+                                </div>
+                              </TabsContent>
+                            </div>
+                          </Tabs>
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
 
               </div>
