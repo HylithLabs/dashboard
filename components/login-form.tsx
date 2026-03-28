@@ -31,11 +31,9 @@ export function LoginForm({
       }); 
       if(response.data.success) {
         localStorage.setItem('email', response.data.data.email); 
+        sessionStorage.setItem('justLoggedIn', 'true');
         
-        toast.success("Login successful");
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 1000);
+        router.push("/dashboard")
       } else {
         toast.error(response.data.message);
       }

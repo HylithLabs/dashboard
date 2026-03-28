@@ -137,8 +137,11 @@ export function NewIssueDialog({ children, onIssueCreated }: NewIssueDialogProps
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {/* Priority Dropdown */}
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   render={
                     <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 px-2 text-xs">
                       <FolderIcon className="size-3.5" />
@@ -146,12 +149,16 @@ export function NewIssueDialog({ children, onIssueCreated }: NewIssueDialogProps
                     </Button>
                   }
                 />
-                <DropdownMenuContent align="start" className="w-40">
+                <DropdownMenuContent align="start" className="w-40 z-[100] bg-popover border rounded-md shadow-md p-1">
                   {priorityOptions.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
-                      onClick={() => setPriority(option)}
-                      className="gap-2"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setPriority(option);
+                      }}
+                      className="gap-2 cursor-pointer"
                     >
                       <span className="flex-1">{option.label}</span>
                       {priority?.value === option.value && (

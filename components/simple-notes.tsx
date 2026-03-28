@@ -3,30 +3,13 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PlusIcon, Trash2Icon, EditIcon, CheckIcon, XIcon, Search } from "lucide-react"
+import { PlusIcon, Trash2Icon, EditIcon, CheckIcon, XIcon, Search, LayoutIcon } from "lucide-react"
 import { toast } from "sonner"
-
-interface SimpleNote {
-  id: string
-  title: string
-  content: string
-  createdAt: string
-  updatedAt: string
-}
-
-// Canvas note extraction interface
-interface CanvasNote {
-  id: string
-  title: string
-  text: string
-  type: string
-  checklist?: Array<{ text: string; checked: boolean }>
-  createdAt: number
-  updatedAt: number
-}
+import { api } from "@/lib/api"
+import { NoteBox } from "@/types/canvas"
 
 export function SimpleNotes({ projectId }: { projectId: string }) {
-  const [notes, setNotes] = React.useState<SimpleNote[]>([])
+  const [notes, setNotes] = React.useState<NoteBox[]>([])
   const [loading, setLoading] = React.useState(true)
   const [newTitle, setNewTitle] = React.useState("")
   const [newContent, setNewContent] = React.useState("")
@@ -36,92 +19,38 @@ export function SimpleNotes({ projectId }: { projectId: string }) {
   const [editContent, setEditContent] = React.useState("")
   const [searchQuery, setSearchQuery] = React.useState("")
 
-  React.useEffect(() => {
-    loadNotes()
-  }, [projectId])
-
-  const loadNotes = async () => {
+  const loadNotes = React.useCallback(async () => {
     setLoading(true)
     try {
       const userEmail = localStorage.getItem("email") || ""
+      const res = await api.simpleNotes.getAll(projectId, userEmail)
       
-      // Load simple notes
-      const simpleNotesRes = await fetch(
-        `/api/simple-notes?projectId=${projectId}&userEmail=${encodeURIComponent(userEmail)}`
-      )
-      const simpleNotesJson = await simpleNotesRes.json()
-      
-      // Load canvas notes and extract them
-      const canvasRes = await fetch(
-        `/api/notes?projectId=${projectId}&userEmail=${encodeURIComponent(userEmail)}`
-      )
-      const canvasJson = await canvasRes.json()
-      
-      const allNotes: SimpleNote[] = []
-      
-      // Add simple notes
-      if (simpleNotesJson.success && simpleNotesJson.data) {
-        const mappedSimpleNotes: SimpleNote[] = simpleNotesJson.data.map((note: any) => ({
-          id: note._id ? note._id.toString() : note.id?.toString(),
-          title: note.title,
-          content: note.content,
-          createdAt: note.createdAt,
-          updatedAt: note.updatedAt,
-        }))
-        allNotes.push(...mappedSimpleNotes)
+      if (res.success && res.data) {
+        setNotes(res.data)
       }
-      
-      // Extract canvas notes (filter out synced simple notes to avoid duplicates)
-      if (canvasJson.success && canvasJson.snapshot?.notes) {
-        const canvasNotes: CanvasNote[] = canvasJson.snapshot.notes.filter(
-          (note: any) => !(note.source === "simple" && note.simpleNoteId)
-        )
-        const extractedNotes: SimpleNote[] = canvasNotes.map((note) => {
-          let content = note.text
-
-          // Convert checklist to text format
-          if (note.type === "checklist" && note.checklist) {
-            content = note.checklist.map(item =>
-              `${item.checked ? '[x]' : '[ ]'} ${item.text}`
-            ).join('\n')
-          }
-
-          return {
-            id: `canvas-${note.id}`,
-            title: note.title || 'Untitled Canvas Note',
-            content: content || '',
-            createdAt: new Date(note.createdAt).toISOString(),
-            updatedAt: new Date(note.updatedAt).toISOString(),
-          }
-        })
-        allNotes.push(...extractedNotes)
-      }
-      
-      // Sort by updated date (newest first)
-      allNotes.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      
-      setNotes(allNotes)
-    } catch {
+    } catch (error) {
       toast.error("Failed to load notes")
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId])
+
+  React.useEffect(() => {
+    loadNotes()
+  }, [loadNotes])
 
   const addNote = async () => {
     if (!newTitle.trim()) { toast.error("Title is required"); return }
     try {
       const userEmail = localStorage.getItem("email") || ""
-      
-      // Create in simple notes only
-      const res = await fetch("/api/simple-notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, userEmail, title: newTitle.trim(), content: newContent.trim() }),
+      const res = await api.simpleNotes.create({ 
+        projectId, 
+        userEmail, 
+        title: newTitle.trim(), 
+        text: newContent.trim() 
       })
-      const json = await res.json()
-      if (json.success) {
-        setNotes(prev => [json.data, ...prev])
+      if (res.success && res.data) {
+        setNotes(prev => [res.data!, ...prev])
         setNewTitle(""); setNewContent(""); setAdding(false)
         toast.success("Note added")
       }
@@ -130,17 +59,14 @@ export function SimpleNotes({ projectId }: { projectId: string }) {
 
   const saveEdit = async (id: string) => {
     try {
-      const userEmail = localStorage.getItem("email") || ""
-      const res = await fetch("/api/simple-notes", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, userEmail, title: editTitle.trim(), content: editContent.trim() }),
+      const res = await api.simpleNotes.update(id, { 
+        title: editTitle.trim(), 
+        text: editContent.trim() 
       })
-      const json = await res.json()
-      if (json.success) {
+      if (res.success) {
         setNotes(prev => prev.map(n =>
           n.id === id
-            ? { ...n, title: editTitle.trim(), content: editContent.trim(), updatedAt: new Date().toISOString() }
+            ? { ...n, title: editTitle.trim(), text: editContent.trim(), updatedAt: Date.now() }
             : n
         ))
         setEditingId(null)
@@ -150,45 +76,36 @@ export function SimpleNotes({ projectId }: { projectId: string }) {
   }
 
   const deleteNote = async (id: string) => {
-    // Prevent deletion of canvas-synced notes from this interface
-    if (id.startsWith("canvas-")) {
-      toast.info("Canvas notes must be deleted from the canvas editor.")
-      return
-    }
-
     try {
-      const res = await fetch(`/api/simple-notes?id=${id}`, { method: "DELETE" })
-      const json = await res.json()
-      if (json.success) {
+      const res = await api.simpleNotes.delete(id)
+      if (res.success) {
         setNotes(prev => prev.filter(n => n.id !== id))
         toast.success("Note deleted")
       }
     } catch { toast.error("Failed to delete note") }
   }
 
-  const startEdit = (note: SimpleNote) => {
+  const startEdit = (note: NoteBox) => {
     setEditingId(note.id)
     setEditTitle(note.title)
-    setEditContent(note.content)
+    setEditContent(note.text)
   }
 
-  // Filter notes based on search query
   const filteredNotes = notes.filter(note => {
     if (!searchQuery.trim()) return true
     const query = searchQuery.toLowerCase()
     return (
       note.title.toLowerCase().includes(query) ||
-      note.content.toLowerCase().includes(query)
+      note.text.toLowerCase().includes(query)
     )
   })
 
   return (
     <div className="flex flex-col gap-4 max-w-3xl">
-      {/* Search bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
         <Input
-          placeholder="Search notes..."
+          placeholder="Search all notes..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9"
@@ -205,7 +122,6 @@ export function SimpleNotes({ projectId }: { projectId: string }) {
         )}
       </div>
 
-      {/* Add button / form */}
       {!adding ? (
         <Button variant="outline" size="sm" className="w-fit gap-2" onClick={() => setAdding(true)}>
           <PlusIcon className="size-4" /> New Note
@@ -234,24 +150,21 @@ export function SimpleNotes({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      {/* List */}
       {loading ? (
         <p className="text-muted-foreground text-sm">Loading notes...</p>
       ) : filteredNotes.length === 0 ? (
         <p className="text-muted-foreground text-sm text-center py-16">
-          {searchQuery ? `No notes found matching "${searchQuery}"` : "No notes yet. Click \"New Note\" to get started."}
+          {searchQuery ? `No notes found matching "${searchQuery}"` : "No notes yet. Start writing!"}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          {filteredNotes.map((note, index) => {
-            const uniqueKey = note.id || `note-${index}`
-            const isEditing = editingId && editingId === uniqueKey
+          {filteredNotes.map((note) => {
+            const isEditing = editingId === note.id
             
             return (
-              <div key={uniqueKey} className="border rounded-lg p-4 bg-card hover:bg-muted/30 transition-colors">
+              <div key={note.id} className="border rounded-lg p-4 bg-card hover:bg-muted/30 transition-colors group">
                 {isEditing ? (
                 <div className="flex flex-col gap-3">
-                  <p className="text-xs text-muted-foreground">Editing: {note.title}</p>
                   <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} autoFocus />
                   <textarea
                     className="w-full min-h-[100px] resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
@@ -270,38 +183,43 @@ export function SimpleNotes({ projectId }: { projectId: string }) {
               ) : (
                 <>
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-base leading-snug">{note.title}</h3>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {(() => {
-                        const isCanvasNote = uniqueKey && uniqueKey.startsWith('canvas-')
-                        return isCanvasNote ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted font-medium">Canvas</span>
-                        ) : (
-                          <>
-                            <Button variant="ghost" size="icon" className="size-7" onClick={() => startEdit(note)} title="Edit note">
-                              <EditIcon className="size-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost" size="icon"
-                              className="size-7 text-destructive hover:text-destructive"
-                              onClick={() => deleteNote(note.id)}
-                              title="Delete note"
-                            >
-                              <Trash2Icon className="size-3.5" />
-                            </Button>
-                          </>
-                        )
-                      })()}
+                    <div className="flex flex-col gap-1">
+                      <h3 className="font-semibold text-base leading-snug">{note.title}</h3>
+                      <div className="flex items-center gap-2">
+                         <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex items-center gap-1">
+                           <LayoutIcon className="size-2.5" /> Canvas Linked
+                         </span>
+                         {note.priority !== "none" && (
+                           <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded text-white" style={{ backgroundColor: note.color }}>
+                             {note.priority}
+                           </span>
+                         )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="size-7" onClick={() => startEdit(note)}>
+                        <EditIcon className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="size-7 text-destructive hover:text-destructive"
+                        onClick={() => deleteNote(note.id)}
+                      >
+                        <Trash2Icon className="size-3.5" />
+                      </Button>
                     </div>
                   </div>
-                  {note.content && (
-                    <p className="text-muted-foreground text-sm mt-2 whitespace-pre-wrap">{note.content}</p>
+                  {note.text && (
+                    <p className="text-muted-foreground text-sm mt-2 whitespace-pre-wrap line-clamp-3">
+                      {note.type === "checklist" ? 
+                        note.checklist.map(i => `${i.checked ? '✓' : '○'} ${i.text}`).join('\n') : 
+                        note.text
+                      }
+                    </p>
                   )}
-                  <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground uppercase tracking-tight">
                     <span>Created: {new Date(note.createdAt).toLocaleDateString()}</span>
-                    {note.updatedAt !== note.createdAt && (
-                      <span>Updated: {new Date(note.updatedAt).toLocaleDateString()}</span>
-                    )}
+                    <span>Updated: {new Date(note.updatedAt).toLocaleDateString()}</span>
                   </div>
                 </>
               )}

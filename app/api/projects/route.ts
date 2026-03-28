@@ -1,31 +1,27 @@
 import getClientPromise from "@/lib/mongodb"
 import { z } from "zod"
+import { ObjectId } from "mongodb"
 
-// Zod schema for a project (used for validation if needed)
 export const projectSchema = z.object({
   name: z.string().min(1, "Project name required"),
-  // Assuming projects are scoped to a user like todos
   userEmail: z.string().email().optional(),
 })
 
-type Project = z.infer<typeof projectSchema> & {
-  _id?: any
-  createdAt: Date
-  userId?: any
-}
-
 export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const email = url.searchParams.get("email")
+  try {
+    const url = new URL(req.url)
+    const email = url.searchParams.get("email")
 
-  const client = await getClientPromise()
-  const db = client.db("hylithhub")
+    const client = await getClientPromise()
+    const db = client.db("hylithhub")
 
-  // If an email is supplied, filter projects for that user; otherwise return all
-  const query = email ? { userEmail: email } : {}
-
-  const projects = await db.collection("projects").find(query).sort({ createdAt: -1 }).toArray()
-  return Response.json({ success: true, data: projects as Project[] })
+    const query = email ? { userEmail: email } : {}
+    const projects = await db.collection("projects").find(query).sort({ createdAt: -1 }).toArray()
+    
+    return Response.json({ success: true, data: projects })
+  } catch (error) {
+    return Response.json({ success: false, message: "Failed to fetch projects" }, { status: 500 })
+  }
 }
 
 export async function POST(req: Request) {
@@ -36,9 +32,11 @@ export async function POST(req: Request) {
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
-    const newProject: Project = {
+    const now = new Date()
+    const newProject = {
       ...parsed,
-      createdAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     }
 
     const result = await db.collection("projects").insertOne(newProject)
@@ -46,7 +44,8 @@ export async function POST(req: Request) {
       success: true,
       data: {
         id: result.insertedId.toString(),
-        name: parsed.name
+        name: parsed.name,
+        createdAt: now.toISOString()
       }
     })
   } catch (error) {
@@ -58,17 +57,24 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const url = new URL(req.url)
-  const id = url.searchParams.get("id")
-  if (!id) {
-    return Response.json({ success: false, message: "Project ID required" }, { status: 400 })
-  }
+  try {
+    const url = new URL(req.url)
+    const id = url.searchParams.get("id")
+    if (!id || !ObjectId.isValid(id)) {
+      return Response.json({ success: false, message: "Valid Project ID required" }, { status: 400 })
+    }
 
-  const client = await getClientPromise()
-  const db = client.db("hylithhub")
-  const result = await db.collection("projects").deleteOne({ _id: new (require('mongodb').ObjectId)(id) })
-  if (result.deletedCount === 0) {
-    return Response.json({ success: false, message: "Project not found" }, { status: 404 })
+    const client = await getClientPromise()
+    const db = client.db("hylithhub")
+    
+    // Also delete associated todos and notes? 
+    // For now just the project
+    const result = await db.collection("projects").deleteOne({ _id: new ObjectId(id) })
+    if (result.deletedCount === 0) {
+      return Response.json({ success: false, message: "Project not found" }, { status: 404 })
+    }
+    return Response.json({ success: true })
+  } catch (error) {
+    return Response.json({ success: false, message: "Failed to delete project" }, { status: 500 })
   }
-  return Response.json({ success: true })
 }

@@ -1,11 +1,11 @@
 import getClientPromise from "@/lib/mongodb"
 import { z } from "zod"
+import { ObjectId } from "mongodb"
 
-const canvasSnapshotSchema = z.object({
+const canvasMetadataSchema = z.object({
   projectId: z.string().min(1),
   userEmail: z.string().email().optional(),
-  snapshot: z.object({
-    notes: z.array(z.any()).optional().default([]),
+  metadata: z.object({
     connections: z.array(z.any()).optional().default([]),
     camera: z.object({ x: z.number(), y: z.number() }).optional(),
     zoom: z.number().optional(),
@@ -13,69 +13,71 @@ const canvasSnapshotSchema = z.object({
 })
 
 export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const projectId = url.searchParams.get("projectId")
-  const userEmail = url.searchParams.get("userEmail")
+  try {
+    const url = new URL(req.url)
+    const projectId = url.searchParams.get("projectId")
+    const userEmail = url.searchParams.get("userEmail")
 
-  if (!projectId) {
-    return Response.json({ success: false, message: "projectId required" }, { status: 400 })
-  }
+    if (!projectId) {
+      return Response.json({ success: false, message: "projectId required" }, { status: 400 })
+    }
 
-  const client = await getClientPromise()
-  const db = client.db("hylithhub")
+    const client = await getClientPromise()
+    const db = client.db("hylithhub")
 
-  const query: any = { projectId }
-  if (userEmail) query.userEmail = userEmail
+    const query: any = { projectId }
+    if (userEmail) query.userEmail = userEmail
 
-  const snapshotDoc = await db.collection("canvas_snapshots").findOne(query)
+    // 1. Fetch all notes for this project
+    const notes = await db.collection("notes").find(query).toArray()
+    
+    // 2. Fetch canvas metadata
+    const metadataDoc = await db.collection("canvas_metadata").findOne(query)
 
-  if (!snapshotDoc) {
-    // Return empty snapshot
-    return Response.json({
-      success: true,
-      snapshot: {
-        notes: [],
+    const snapshot = {
+      notes: notes.map(n => ({ ...n, id: n._id.toString() })),
+      metadata: metadataDoc?.metadata || {
         connections: [],
         camera: { x: 0, y: 0 },
         zoom: 1,
       },
-    })
-  }
+    }
 
-  return Response.json({
-    success: true,
-    snapshot: snapshotDoc.snapshot,
-  })
+    return Response.json({
+      success: true,
+      data: snapshot,
+    })
+  } catch (error) {
+    return Response.json({ success: false, message: "Failed to fetch project data" }, { status: 500 })
+  }
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const parsed = canvasSnapshotSchema.parse(body)
+    const parsed = canvasMetadataSchema.parse(body)
 
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
     const now = new Date()
-    const snapshotDoc = {
-      ...parsed,
-      updatedAt: now,
-    }
-
-    const existingSnapshot = await db.collection("canvas_snapshots").findOne({
+    const query = {
       projectId: parsed.projectId,
       userEmail: parsed.userEmail,
-    })
+    }
 
-    if (existingSnapshot) {
-      await db.collection("canvas_snapshots").updateOne(
-        { _id: existingSnapshot._id },
-        { $set: { snapshot: parsed.snapshot, updatedAt: now } }
+    const existingMetadata = await db.collection("canvas_metadata").findOne(query)
+
+    if (existingMetadata) {
+      await db.collection("canvas_metadata").updateOne(
+        { _id: existingMetadata._id },
+        { $set: { metadata: parsed.metadata, updatedAt: now } }
       )
     } else {
-      await db.collection("canvas_snapshots").insertOne({
-        ...snapshotDoc,
+      await db.collection("canvas_metadata").insertOne({
+        ...parsed,
         createdAt: now,
+        updatedAt: now,
       })
     }
 
@@ -84,48 +86,6 @@ export async function POST(req: Request) {
     if (error instanceof z.ZodError) {
       return Response.json({ success: false, message: error.issues[0].message }, { status: 400 })
     }
-    console.error("Error saving canvas snapshot:", error)
-    return Response.json({ success: false, message: "Failed to save canvas snapshot" }, { status: 500 })
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const url = new URL(req.url)
-    const id = url.searchParams.get("id")
-
-    if (!id) {
-      return Response.json({ success: false, message: "Note ID required" }, { status: 400 })
-    }
-
-    const client = await getClientPromise()
-    const db = client.db("hylithhub")
-
-    const snapshots = await db.collection("canvas_snapshots").find({}).toArray()
-    let found = false
-
-    for (const snapshot of snapshots) {
-      if (snapshot.snapshot?.notes) {
-        const noteExists = snapshot.snapshot.notes.some((n: any) => n.id === id)
-        if (noteExists) {
-          const updatedNotes = snapshot.snapshot.notes.filter((n: any) => n.id !== id)
-          await db.collection("canvas_snapshots").updateOne(
-            { _id: snapshot._id },
-            { $set: { "snapshot.notes": updatedNotes, updatedAt: new Date() } }
-          )
-          found = true
-          break
-        }
-      }
-    }
-
-    if (!found) {
-      return Response.json({ success: false, message: "Note not found" }, { status: 404 })
-    }
-
-    return Response.json({ success: true })
-  } catch (error) {
-    console.error("Error deleting canvas note:", error)
-    return Response.json({ success: false, message: "Failed to delete note" }, { status: 500 })
+    return Response.json({ success: false, message: "Failed to save canvas metadata" }, { status: 500 })
   }
 }

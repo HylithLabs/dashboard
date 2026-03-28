@@ -17,7 +17,7 @@ const CanvasEditor = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center h-[600px] w-full bg-background">
+      <div className="flex items-center justify-center h-full w-full bg-background">
         <div className="text-muted-foreground">Loading canvas...</div>
       </div>
     ),
@@ -27,45 +27,52 @@ const CanvasEditor = dynamic(
 function DashboardContent() {
   const router = useRouter()
   const { selectedProjectId, projects, getAllTodos, getCurrentProjectTodos, activeTab, setActiveTab } = useProjects()
-  const [email, setEmail] = useState('')
+  const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
     const storedEmail = localStorage.getItem("email")
     if (storedEmail && storedEmail !== "undefined") {
-      setEmail(storedEmail)
-      toast.success("Login successful")
+      const justLoggedIn = sessionStorage.getItem("justLoggedIn")
+      if (justLoggedIn) {
+        toast.success("Login successful")
+        sessionStorage.removeItem("justLoggedIn")
+      }
+      setIsLoaded(true)
     } else {
       router.push('/')
     }
   }, [router])
 
-  const pageTitle = selectedProjectId
-    ? projects.find(p => p.id === selectedProjectId)?.name || 'Project'
-    : 'All Todos'
+  if (!isLoaded) return null
+
+  const project = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : null
+  const pageTitle = project?.name || 'All Todos'
 
   const todosToShow = selectedProjectId ? getCurrentProjectTodos() : getAllTodos()
   const showTabs = !!selectedProjectId
 
   const tabs = [
     { key: "todos", label: "Todos", icon: CheckSquareIcon },
-    { key: "canvas", label: "Canvas", icon: LayoutIcon },
-    { key: "notes", label: "Notes", icon: FileTextIcon },
+    { key: "notes", label: "Canvas", icon: LayoutIcon },
+    { key: "simple-notes", label: "Notes", icon: FileTextIcon },
   ]
+
+  const isCanvasMode = activeTab === "notes" && showTabs
 
   return (
     <>
       <AppSidebar variant="inset" />
-      <SidebarInset>
+      <SidebarInset className={isCanvasMode ? "overflow-hidden" : ""}>
         <SiteHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <div className="px-4 lg:px-6">
+        <div className={`flex flex-1 flex-col ${isCanvasMode ? "overflow-hidden" : ""}`}>
+          <div className={`@container/main flex flex-1 flex-col gap-2 ${isCanvasMode ? "overflow-hidden" : ""}`}>
+            <div className={`flex flex-col gap-4 py-4 md:gap-6 md:py-6 flex-1 ${isCanvasMode ? "overflow-hidden" : ""}`}>
+              <div className={`px-4 lg:px-6 flex flex-col flex-1 ${isCanvasMode ? "overflow-hidden" : ""}`}>
 
                 {/* Header row */}
-                <div className="flex items-center gap-3 mb-6">
+                <div className="flex items-center justify-between mb-6 flex-shrink-0">
                   <h1 className="text-2xl font-semibold">{pageTitle}</h1>
-                  {/* {showTabs && (
+                  {showTabs && (
                     <div className="flex items-center gap-1 bg-muted rounded-md p-1">
                       {tabs.map(({ key, label, icon: Icon }) => (
                         <button
@@ -82,24 +89,24 @@ function DashboardContent() {
                         </button>
                       ))}
                     </div>
-                  )} */}
+                  )}
                 </div>
 
                 {/* Content */}
                 {showTabs ? (
-                  <>
+                  <div className={`flex-1 flex flex-col ${isCanvasMode ? "overflow-hidden" : ""}`}>
                     {activeTab === "todos" && (
                       <DataTable todos={todosToShow} selectedProjectId={selectedProjectId} />
                     )}
                     {activeTab === "notes" && (
-                      <div className="border rounded-lg overflow-hidden" style={{ height: '650px' }}>
+                      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden relative bg-muted/20">
                         <CanvasEditor projectId={selectedProjectId} />
                       </div>
                     )}
                     {activeTab === "simple-notes" && (
                       <SimpleNotes projectId={selectedProjectId} />
                     )}
-                  </>
+                  </div>
                 ) : (
                   <DataTable todos={todosToShow} selectedProjectId={undefined} />
                 )}

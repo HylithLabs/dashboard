@@ -2,7 +2,7 @@ import getClientPromise from "@/lib/mongodb"
 import bcrypt from "bcrypt"
 import { z } from "zod"
 
-const adminEmail = "jotirmoybhowmik1976@gmail.com"
+const adminEmail = process.env.ADMIN_EMAIL || "jotirmoybhowmik1976@gmail.com"
 
 // Schema for creating a user (admin only)
 const createUserSchema = z.object({

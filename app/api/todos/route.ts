@@ -25,7 +25,6 @@ export async function GET(req: Request) {
     if (userEmail) query.userEmail = userEmail
 
     const todos = await db.collection("todos").find(query).sort({ createdAt: -1 }).toArray()
-
     return Response.json({ success: true, data: todos })
   } catch (error) {
     return Response.json({ success: false, message: "Failed to fetch todos" }, { status: 500 })
@@ -40,9 +39,11 @@ export async function POST(req: Request) {
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
+    const now = new Date()
     const todo = {
       ...parsed,
-      createdAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     }
 
     const result = await db.collection("todos").insertOne(todo)
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
       data: {
         id: result.insertedId.toString(),
         ...parsed,
+        createdAt: now.toISOString(),
       },
     })
   } catch (error) {
@@ -66,8 +68,8 @@ export async function DELETE(req: Request) {
     const url = new URL(req.url)
     const id = url.searchParams.get("id")
 
-    if (!id) {
-      return Response.json({ success: false, message: "Todo ID required" }, { status: 400 })
+    if (!id || !ObjectId.isValid(id)) {
+      return Response.json({ success: false, message: "Valid Todo ID required" }, { status: 400 })
     }
 
     const client = await getClientPromise()
@@ -85,16 +87,17 @@ export async function PUT(req: Request) {
     const body = await req.json()
     const { id, ...updates } = body
 
-    if (!id) {
-      return Response.json({ success: false, message: "Todo ID required" }, { status: 400 })
+    if (!id || !ObjectId.isValid(id)) {
+      return Response.json({ success: false, message: "Valid Todo ID required" }, { status: 400 })
     }
 
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
+    const now = new Date()
     await db.collection("todos").updateOne(
       { _id: new ObjectId(id) },
-      { $set: { ...updates, updatedAt: new Date() } }
+      { $set: { ...updates, updatedAt: now } }
     )
 
     return Response.json({ success: true })
