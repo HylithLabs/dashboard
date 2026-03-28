@@ -79,6 +79,7 @@ import {
 } from "lucide-react"
 import { NewIssueDialog, type Issue } from "./new-issue-dialog"
 import { useProjects, type Todo } from "./projects-context"
+import { motion, AnimatePresence } from "framer-motion"
 
 // Convert Todo to table row format
 function todoToRow(todo: Todo, index: number) {
@@ -459,26 +460,43 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
               ))}
             </TableHeader>
             <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell 
-                        key={cell.id}
-                        className={cell.column.id === "header" ? "w-full" : "w-auto whitespace-nowrap"}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
+              <AnimatePresence mode="popLayout">
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row, index) => (
+                    <motion.tr
+                      key={row.id}
+                      initial={{ opacity: 0, y: 4, filter: "blur(2px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, x: -4, filter: "blur(2px)" }}
+                      whileTap={{ scale: 0.998, backgroundColor: "var(--muted)" }}
+                      transition={{ 
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 30,
+                        mass: 0.8,
+                        delay: Math.min(index * 0.015, 0.15)
+                      }}
+                      data-state={row.getIsSelected() && "selected"}
+                      className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted relative cursor-default"
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell 
+                          key={cell.id}
+                          className={cell.column.id === "header" ? "w-full" : "w-auto whitespace-nowrap"}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </motion.tr>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                      No todos yet. Click "Add Todo" to create one.
+                    </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    No todos yet. Click "Add Todo" to create one.
-                  </TableCell>
-                </TableRow>
-              )}
+                )}
+              </AnimatePresence>
             </TableBody>
           </Table>
         </div>

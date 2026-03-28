@@ -10,6 +10,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
+  DrawerDescription,
 } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -63,6 +64,7 @@ export function NewProjectDialog({ children, onProjectCreated }: NewProjectDialo
     <Drawer open={open} onOpenChange={setOpen} direction={isMobile ? "bottom" : "right"}>
       <DrawerTrigger asChild>{children || <Button variant="outline" size="sm">New Project</Button>}</DrawerTrigger>
       <DrawerContent className="sm:max-w-xl">
+        <DrawerDescription className="sr-only">Create a new project</DrawerDescription>
         <form onSubmit={handleSubmit} className="flex flex-col h-full">
           <DrawerHeader className="border-b px-4 py-3 flex flex-row items-center justify-between gap-4">
             <DrawerTitle className="text-lg font-medium">Create Project</DrawerTitle>

@@ -9,6 +9,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarGroup,
+  SidebarGroupContent,
 } from "@/components/ui/sidebar"
 import { NavUser } from "./nav-user"
 
@@ -23,6 +25,7 @@ import { useProjects } from "./projects-context"
 import { useEffect } from "react"
 import { useState } from "react"
 import Link from "next/link"
+import { motion } from "framer-motion"
 
 const ADMIN_EMAIL = "jotirmoybhowmik1976@gmail.com"
 
@@ -41,7 +44,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setIsAdmin(email === ADMIN_EMAIL || userRole === "admin")
   }, [])
 
-  // Only show Users tab for admin
+  // Secondary items for the footer
   const bottomItems = [
     ...(isAdmin ? [{ 
       title: "Users", 
@@ -59,7 +62,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     user: {
       name: storedEmail.split('@')[0],
       email: storedEmail,
-      avatar: "/avatars/shadcn.jpg",
+      avatar: "",
     },
   }
   
@@ -85,64 +88,74 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-
-
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        {/* All Todos - Dashboard */}
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => {
-                selectProject(null)
-                setActiveTab("todos")
-              }}
-              className="w-full justify-start"
-              isActive={!selectedProjectId && activeTab === "todos"}
-            >
-              <LayoutDashboardIcon className="size-4" />
-              <span>All Todos</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-
-        {/* Projects Section */}
-        <NavProjects />
-
-        {/* Bottom Items */}
-        <SidebarMenu className="mt-auto capitalize">
-          {bottomItems.map((item: any) => (
-            <SidebarMenuItem key={item.title}>
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          {/* All Todos - Dashboard */}
+          <SidebarMenu>
+            <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={item.onClick}
-                isActive={item.isActive}
-                render={
-                  item.url ? (
-                    <Link href={item.url} className="flex items-center gap-3">
-                      <item.icon className="size-4" />
-                      <span className="flex-1">{item.title}</span>
-                      {item.hasArrow && (
-                        <ChevronRightIcon className="size-3 text-muted-foreground" />
-                      )}
-                    </Link>
-                  ) : undefined
-                }
+                onClick={() => {
+                  selectProject(null)
+                  setActiveTab("todos")
+                }}
+                className="w-full justify-start"
+                isActive={!selectedProjectId && activeTab === "todos"}
               >
-                {!item.url && (
-                  <>
-                    <item.icon className="size-4" />
-                    <span className="flex-1">{item.title}</span>
-                  </>
-                )}
+                <LayoutDashboardIcon className="size-4" />
+                <span>All Todos</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
+          </SidebarMenu>
+
+          {/* Projects Section */}
+          <NavProjects />
+        </motion.div>
       </SidebarContent>
 
-      <SidebarFooter>
-        <NavUser user={data.user} />
+      <SidebarFooter className="gap-0 border-t">
+        {/* Secondary Navigation (Users & Settings) */}
+        <SidebarGroup className="py-2">
+          <SidebarGroupContent>
+            <SidebarMenu className="capitalize">
+              {bottomItems.map((item: any) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    onClick={item.onClick}
+                    isActive={item.isActive}
+                    render={
+                      item.url ? (
+                        <Link href={item.url} className="flex items-center gap-3">
+                          <item.icon className="size-4" />
+                          <span className="flex-1">{item.title}</span>
+                          {item.hasArrow && (
+                            <ChevronRightIcon className="size-3 text-muted-foreground ml-auto" />
+                          )}
+                        </Link>
+                      ) : undefined
+                    }
+                  >
+                    {!item.url && (
+                      <div className="flex items-center gap-3 w-full">
+                        <item.icon className="size-4" />
+                        <span className="flex-1">{item.title}</span>
+                      </div>
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <div className="px-2 pb-4">
+          <NavUser user={data.user} />
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

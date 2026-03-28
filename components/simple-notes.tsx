@@ -7,6 +7,7 @@ import { PlusIcon, Trash2Icon, EditIcon, CheckIcon, XIcon, Search, LayoutIcon } 
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { NoteBox } from "@/types/canvas"
+import { motion, AnimatePresence } from "framer-motion"
 
 export function SimpleNotes({ projectId }: { projectId: string }) {
   const [notes, setNotes] = React.useState<NoteBox[]>([])
@@ -158,74 +159,83 @@ export function SimpleNotes({ projectId }: { projectId: string }) {
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          {filteredNotes.map((note) => {
-            const isEditing = editingId === note.id
-            
-            return (
-              <div key={note.id} className="border rounded-lg p-4 bg-card hover:bg-muted/30 transition-colors group">
-                {isEditing ? (
-                <div className="flex flex-col gap-3">
-                  <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} autoFocus />
-                  <textarea
-                    className="w-full min-h-[100px] resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    value={editContent}
-                    onChange={e => setEditContent(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => saveEdit(note.id)}>
-                      <CheckIcon className="size-4 mr-1" /> Save
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
-                      <XIcon className="size-4 mr-1" /> Cancel
-                    </Button>
+          <AnimatePresence mode="popLayout">
+            {filteredNotes.map((note, index) => {
+              const isEditing = editingId === note.id
+              
+              return (
+                <motion.div 
+                  key={note.id} 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
+                  className="border rounded-lg p-4 bg-card hover:bg-muted/30 transition-colors group"
+                >
+                  {isEditing ? (
+                  <div className="flex flex-col gap-3">
+                    <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} autoFocus />
+                    <textarea
+                      className="w-full min-h-[100px] resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      value={editContent}
+                      onChange={e => setEditContent(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => saveEdit(note.id)}>
+                        <CheckIcon className="size-4 mr-1" /> Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                        <XIcon className="size-4 mr-1" /> Cancel
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-col gap-1">
-                      <h3 className="font-semibold text-base leading-snug">{note.title}</h3>
-                      <div className="flex items-center gap-2">
-                         <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex items-center gap-1">
-                           <LayoutIcon className="size-2.5" /> Canvas Linked
-                         </span>
-                         {note.priority !== "none" && (
-                           <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded text-white" style={{ backgroundColor: note.color }}>
-                             {note.priority}
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col gap-1">
+                        <h3 className="font-semibold text-base leading-snug">{note.title}</h3>
+                        <div className="flex items-center gap-2">
+                           <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex items-center gap-1">
+                             <LayoutIcon className="size-2.5" /> Canvas Linked
                            </span>
-                         )}
+                           {note.priority !== "none" && (
+                             <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded text-white" style={{ backgroundColor: note.color }}>
+                               {note.priority}
+                             </span>
+                           )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="size-7" onClick={() => startEdit(note)}>
+                          <EditIcon className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="size-7 text-destructive hover:text-destructive"
+                          onClick={() => deleteNote(note.id)}
+                        >
+                          <Trash2Icon className="size-3.5" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="size-7" onClick={() => startEdit(note)}>
-                        <EditIcon className="size-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon"
-                        className="size-7 text-destructive hover:text-destructive"
-                        onClick={() => deleteNote(note.id)}
-                      >
-                        <Trash2Icon className="size-3.5" />
-                      </Button>
+                    {note.text && (
+                      <p className="text-muted-foreground text-sm mt-2 whitespace-pre-wrap line-clamp-3">
+                        {note.type === "checklist" ? 
+                          note.checklist?.map(i => `${i.checked ? '✓' : '○'} ${i.text}`).join('\n') : 
+                          note.text
+                        }
+                      </p>
+                    )}
+                    <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground uppercase tracking-tight">
+                      <span>Created: {new Date(note.createdAt).toLocaleDateString()}</span>
+                      <span>Updated: {new Date(note.updatedAt).toLocaleDateString()}</span>
                     </div>
-                  </div>
-                  {note.text && (
-                    <p className="text-muted-foreground text-sm mt-2 whitespace-pre-wrap line-clamp-3">
-                      {note.type === "checklist" ? 
-                        note.checklist.map(i => `${i.checked ? '✓' : '○'} ${i.text}`).join('\n') : 
-                        note.text
-                      }
-                    </p>
-                  )}
-                  <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground uppercase tracking-tight">
-                    <span>Created: {new Date(note.createdAt).toLocaleDateString()}</span>
-                    <span>Updated: {new Date(note.updatedAt).toLocaleDateString()}</span>
-                  </div>
-                </>
-              )}
-              </div>
-            )
-          })}
+                  </>
+                )}
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
         </div>
       )}
     </div>

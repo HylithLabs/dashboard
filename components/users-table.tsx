@@ -27,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { SearchIcon, UserCogIcon, MailIcon, CalendarIcon } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface User {
   _id: string
@@ -141,60 +142,76 @@ export function UsersTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredUsers.length > 0 ? (
-              filteredUsers.map((user) => (
-                <TableRow key={user._id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-[10px]">
-                          {user.email.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium leading-none">
-                          {user.email.split('@')[0]}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {user.email}
-                        </span>
+            <AnimatePresence mode="popLayout">
+              {filteredUsers.length > 0 ? (
+                filteredUsers.map((user, index) => (
+                  <motion.tr 
+                    key={user._id} 
+                    initial={{ opacity: 0, y: 4, filter: "blur(2px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, scale: 0.98, filter: "blur(2px)" }}
+                    whileTap={{ scale: 0.998, backgroundColor: "var(--muted)" }}
+                    transition={{ 
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 30,
+                      mass: 0.8,
+                      delay: Math.min(index * 0.015, 0.15)
+                    }}
+                    className="group border-b last:border-0 hover:bg-muted/20 transition-colors cursor-default"
+                  >
+                    <TableCell className="py-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-[10px]">
+                            {user.email.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium leading-none">
+                            {user.email.split('@')[0]}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {user.email}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric"
-                    }) : "N/A"}
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={user.role || "user"}
-                      onValueChange={(value) => handleRoleChange(user.email, value)}
-                      disabled={user.email === "jotirmoybhowmik1976@gmail.com"}
-                    >
-                      <SelectTrigger className="h-8 w-[110px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roles.map((role) => (
-                          <SelectItem key={role._id} value={role.name} className="capitalize">
-                            {role.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric"
+                      }) : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={user.role || "user"}
+                        onValueChange={(value) => handleRoleChange(user.email, value)}
+                        disabled={user.email === "jotirmoybhowmik1976@gmail.com"}
+                      >
+                        <SelectTrigger className="h-8 w-[110px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles.map((role) => (
+                            <SelectItem key={role._id} value={role.name} className="capitalize">
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </motion.tr>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="h-24 text-center">
+                    No results.
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center">
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
+              )}
+            </AnimatePresence>
           </TableBody>
         </Table>
       </div>

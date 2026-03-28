@@ -13,6 +13,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
+  DrawerDescription,
 } from "@/components/ui/drawer";
 import {
   DropdownMenu,
@@ -105,6 +106,7 @@ export function NewIssueDialog({
         {children || <Button>Add Todo</Button>}
       </DrawerTrigger>
       <DrawerContent className="sm:max-w-xl">
+        <DrawerDescription className="sr-only">New issue details</DrawerDescription>
         <form onSubmit={handleSubmit} className="flex flex-col h-full">
           <DrawerHeader className="border-b px-4 py-3 flex flex-row items-center justify-between gap-4">
             <DrawerTitle className="text-lg font-medium flex items-center gap-2">

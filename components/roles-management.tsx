@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner"
 import axios from "axios"
 import { Badge } from "@/components/ui/badge"
-
 import { ShieldCheckIcon, ShieldPlusIcon, InfoIcon, HammerIcon } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface Role {
   _id: string
@@ -84,7 +84,12 @@ export function RolesManagement({ onRolesChanged }: { onRolesChanged?: () => voi
 
   return (
     <div className="grid gap-6 md:grid-cols-[1fr_300px]">
-      <div className="space-y-4">
+      <motion.div 
+        initial={{ opacity: 0, x: -8, filter: "blur(4px)" }}
+        animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="space-y-4"
+      >
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -95,23 +100,41 @@ export function RolesManagement({ onRolesChanged }: { onRolesChanged?: () => voi
               </TableRow>
             </TableHeader>
             <TableBody>
-              {roles.map((role) => (
-                <TableRow key={role._id}>
-                  <TableCell className="font-medium capitalize">{role.name}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{role.description || "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant={role.isDefault ? "secondary" : "outline"} className="text-[10px] font-bold uppercase tracking-tighter">
-                      {role.isDefault ? "System" : "Custom"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
+              <AnimatePresence mode="popLayout">
+                {roles.map((role, index) => (
+                  <motion.tr 
+                    key={role._id}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ 
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 30,
+                      delay: index * 0.02 
+                    }}
+                  >
+                    <TableCell className="font-medium capitalize">{role.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{role.description || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={role.isDefault ? "secondary" : "outline"} className="text-[10px] font-bold uppercase tracking-tighter">
+                        {role.isDefault ? "System" : "Custom"}
+                      </Badge>
+                    </TableCell>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
             </TableBody>
           </Table>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="space-y-4">
+      <motion.div 
+        initial={{ opacity: 0, x: 8, filter: "blur(4px)" }}
+        animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+        className="space-y-4"
+      >
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Add Role</CardTitle>
@@ -146,7 +169,7 @@ export function RolesManagement({ onRolesChanged }: { onRolesChanged?: () => voi
             </form>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
     </div>
   )
 }

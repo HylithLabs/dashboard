@@ -64,7 +64,6 @@ function DashboardContent() {
     { key: "todos", label: "Todos", icon: CheckSquareIcon },
     { key: "notes", label: "Canvas", icon: LayoutIcon },
     { key: "simple-notes", label: "Notes", icon: FileTextIcon },
-    ...(isAdmin ? [{ key: "users", label: "Users", icon: UsersIcon }] : [])
   ]
 
   const isUsersTab = activeTab === "users" && isAdmin
@@ -88,9 +87,11 @@ function DashboardContent() {
                   {showTabs && !isUsersTab && (
                     <div className="flex items-center gap-1 bg-muted/50 border rounded-lg p-1 shadow-sm">
                       {tabs.map(({ key, label, icon: Icon }) => (
-                        <button
+                        <motion.button
                           key={key}
                           onClick={() => setActiveTab(key)}
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 capitalize ${
                             activeTab === key
                               ? "bg-background text-foreground shadow-sm ring-1 ring-border"
@@ -99,21 +100,24 @@ function DashboardContent() {
                         >
                           <Icon className="size-3.5" />
                           {label}
-                        </button>
+                        </motion.button>
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* Content with Framer Motion transitions */}
+                {/* Content with Premium Framer Motion transitions */}
                 <div className="flex-1 flex flex-col min-h-0 relative">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={activeTab + (selectedProjectId || "")}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      initial={{ opacity: 0, scale: 0.99, filter: "blur(4px)" }}
+                      animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, scale: 1.01, filter: "blur(2px)" }}
+                      transition={{ 
+                        duration: 0.2, 
+                        ease: [0.22, 1, 0.36, 1] // Custom quintic easing
+                      }}
                       className="flex-1 flex flex-col min-h-0"
                     >
                       {activeTab === "todos" && (

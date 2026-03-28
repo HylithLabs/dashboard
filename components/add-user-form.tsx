@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select"
 
 import { UserPlusIcon, KeyIcon, ShieldIcon, AtSignIcon } from "lucide-react"
+import { motion } from "framer-motion"
 
 export function AddUserForm({ onUserAdded }: { onUserAdded?: () => void }) {
   const [email, setEmail] = useState("")
@@ -85,7 +86,12 @@ export function AddUserForm({ onUserAdded }: { onUserAdded?: () => void }) {
   }
 
   return (
-    <div className="space-y-8 py-2">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-8 py-2"
+    >
       <div>
         <h3 className="text-lg font-medium">User Provisioning</h3>
         <p className="text-sm text-muted-foreground">
@@ -151,6 +157,6 @@ export function AddUserForm({ onUserAdded }: { onUserAdded?: () => void }) {
           </Button>
         </div>
       </form>
-    </div>
+    </motion.div>
   )
 }
