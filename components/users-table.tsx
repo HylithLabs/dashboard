@@ -187,7 +187,7 @@ export function UsersTable() {
                     <TableCell>
                       <Select
                         value={user.role || "user"}
-                        onValueChange={(value) => handleRoleChange(user.email, value)}
+                        onValueChange={(value) => handleRoleChange(user.email, value || "user")}
                         disabled={user.email === "jotirmoybhowmik1976@gmail.com"}
                       >
                         <SelectTrigger className="h-8 w-[110px]">

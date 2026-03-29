@@ -113,7 +113,7 @@ export function AddUserForm({ onUserAdded }: { onUserAdded?: () => void }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Assigned Role</Label>
-            <Select value={role} onValueChange={(value) => setRole(value)}>
+            <Select value={role} onValueChange={(value) => setRole(value || "user")}>
               <SelectTrigger id="role">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>

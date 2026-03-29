@@ -39,6 +39,8 @@ export interface NoteBox {
   updatedAt: number
   projectId: string
   userEmail: string
+  source?: "canvas" | "simple"
+  simpleNoteId?: string
 }
 
 export interface CanvasMetadata {

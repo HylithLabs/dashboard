@@ -5,16 +5,15 @@ import { NoteBox, NoteConnection, CanvasSnapshot, CanvasMetadata } from "@/types
 import { MAX_HISTORY } from "@/types/canvas-constants"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
-
-export function useCanvasState(projectId?: string) {
+export function useCanvasState(projectId?: string | null) {
   const [notes, setNotes] = React.useState<NoteBox[]>([])
   const [connections, setConnections] = React.useState<NoteConnection[]>([])
   const [camera, setCamera] = React.useState({ x: 0, y: 0 })
   const [zoom, setZoom] = React.useState(1)
-  
+
   const [history, setHistory] = React.useState<NoteBox[][]>([])
   const [historyIndex, setHistoryIndex] = React.useState(-1)
-  
+
   const isInitializing = React.useRef(true)
   const lastSavedNotes = React.useRef<string | null>(null)
   const lastSavedMetadata = React.useRef<string | null>(null)

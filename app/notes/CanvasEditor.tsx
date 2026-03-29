@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Move, Target, Navigation, PlusIcon } from "lucide-react"
 
 interface CanvasEditorProps {
-  projectId?: string
+  projectId?: string | null
 }
 
 const scrollbarHideStyles = `

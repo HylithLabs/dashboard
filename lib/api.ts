@@ -51,7 +51,7 @@ export const api = {
   },
   notes: {
     // Unified API for all notes
-    getAll: (projectId: string, userEmail?: string) =>
+    getAll: (projectId: string | null, userEmail?: string) =>
       apiFetch<CanvasSnapshot>(`/api/notes?projectId=${projectId}${userEmail ? `&userEmail=${encodeURIComponent(userEmail)}` : ""}`),
     
     create: (note: Partial<NoteBox>) =>
@@ -72,7 +72,7 @@ export const api = {
       apiFetch<void>(`/api/simple-notes?id=${id}`, { method: "DELETE" }),
 
     // Batch update for note positions/metadata
-    saveCanvasMetadata: (projectId: string, userEmail: string, metadata: CanvasMetadata) =>
+    saveCanvasMetadata: (projectId: string | null, userEmail: string, metadata: CanvasMetadata) =>
       apiFetch<void>("/api/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,7 +88,7 @@ export const api = {
   },
   // simpleNotes endpoint now just an alias for standard note CRUD
   simpleNotes: {
-    getAll: (projectId?: string, userEmail?: string) => {
+    getAll: (projectId?: string | null, userEmail?: string) => {
       let url = "/api/simple-notes"
       const params = new URLSearchParams()
       if (projectId) params.append("projectId", projectId)

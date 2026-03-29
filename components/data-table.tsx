@@ -78,7 +78,8 @@ import {
   MinusIcon 
 } from "lucide-react"
 import { NewIssueDialog, type Issue } from "./new-issue-dialog"
-import { useProjects, type Todo } from "./projects-context"
+import { useProjects } from "./projects-context"
+import { type Todo } from "@/types"
 import { motion, AnimatePresence } from "framer-motion"
 
 // Convert Todo to table row format

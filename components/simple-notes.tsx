@@ -9,7 +9,7 @@ import { api } from "@/lib/api"
 import { NoteBox } from "@/types/canvas"
 import { motion, AnimatePresence } from "framer-motion"
 
-export function SimpleNotes({ projectId }: { projectId: string }) {
+export function SimpleNotes({ projectId }: { projectId: string | null }) {
   const [notes, setNotes] = React.useState<NoteBox[]>([])
   const [loading, setLoading] = React.useState(true)
   const [newTitle, setNewTitle] = React.useState("")
