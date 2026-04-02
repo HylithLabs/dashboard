@@ -34,11 +34,13 @@ function DashboardContent() {
   const { selectedProjectId, projects, getAllTodos, getCurrentProjectTodos, activeTab, setActiveTab } = useProjects()
   const [isLoaded, setIsLoaded] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [selectedNoteId, setSelectedNoteId] = React.useState<string | null>(null)
+  const [showColorPicker, setShowColorPicker] = React.useState(false)
 
   useEffect(() => {
     const storedEmail = localStorage.getItem("email")
     const storedRole = localStorage.getItem("role")
-    
+
     if (storedEmail && storedEmail !== "undefined") {
       setIsAdmin(storedEmail === "jotirmoybhowmik1976@gmail.com" || storedRole === "admin")
       const justLoggedIn = sessionStorage.getItem("justLoggedIn")
@@ -69,6 +71,12 @@ function DashboardContent() {
   const isUsersTab = activeTab === "users" && isAdmin
   const isCanvasMode = activeTab === "notes" && showTabs
 
+  const handleNoteAction = (action: string) => {
+    if (!selectedNoteId) return
+    // Actions will be handled by CanvasEditor via callback
+    setSelectedNoteId(null)
+  }
+
   return (
     <>
       <AppSidebar variant="inset" />
@@ -84,25 +92,72 @@ function DashboardContent() {
                   <h1 className="text-2xl font-semibold capitalize tracking-tight">
                     {isUsersTab ? "Management Console" : pageTitle}
                   </h1>
-                  {showTabs && !isUsersTab && (
-                    <div className="flex items-center gap-1 bg-muted/50 border rounded-lg p-1 shadow-sm">
-                      {tabs.map(({ key, label, icon: Icon }) => (
-                        <motion.button
-                          key={key}
-                          onClick={() => setActiveTab(key)}
-                          whileTap={{ scale: 0.97 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 capitalize ${
-                            activeTab === key
-                              ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                          }`}
-                        >
-                          <Icon className="size-3.5" />
-                          {label}
-                        </motion.button>
-                      ))}
-                    </div>
+                  {showTabs && !isUsersTab && activeTab === "notes" && selectedNoteId && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="flex items-center gap-1 bg-background border rounded-lg p-1 shadow-sm"
+                    >
+                      {(() => {
+                        const noteActions = [
+                          { label: "🏠 Home", action: "home" },
+                          { label: "🎯 View", action: "view" },
+                          { label: "📍 Go", action: "goto" },
+                          { label: "📌 Pin", action: "pin" },
+                          { label: "📋 Copy", action: "duplicate" },
+                          { label: "🔗 Link", action: "connect" },
+                        ]
+                        const colors = ["#3b82f6", "#ef4444", "#22c55e", "#eab308", "#a855f7", "#ec4899", "#06b6d4", "#f97316"]
+                        return (
+                          <>
+                            <span className="text-xs text-muted-foreground px-2 font-medium">Note:</span>
+                            {noteActions.map(({ label, action }) => (
+                              <button
+                                key={action}
+                                onClick={() => {
+                                  window.dispatchEvent(new CustomEvent('canvas-note-action', { detail: { action, noteId: selectedNoteId } }))
+                                  setSelectedNoteId(null)
+                                }}
+                                className="text-xs px-2 py-1 rounded hover:bg-muted transition-colors"
+                              >
+                                {label}
+                              </button>
+                            ))}
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowColorPicker(!showColorPicker)}
+                                className="text-xs px-2 py-1 rounded hover:bg-muted transition-colors"
+                              >
+                                🎨 Color
+                              </button>
+                              {showColorPicker && (
+                                <div className="absolute top-full right-0 mt-1 p-2 bg-background border rounded-lg shadow-lg z-50 flex gap-1">
+                                  {colors.map((color) => (
+                                    <button
+                                      key={color}
+                                      className="w-5 h-5 rounded-full border-2 border-white/30 hover:scale-110 transition-transform"
+                                      style={{ backgroundColor: color }}
+                                      onClick={() => {
+                                        window.dispatchEvent(new CustomEvent('canvas-note-action', { detail: { action: 'color', noteId: selectedNoteId, color } }))
+                                        setShowColorPicker(false)
+                                        setSelectedNoteId(null)
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setSelectedNoteId(null)}
+                              className="text-xs px-2 py-1 rounded hover:bg-muted transition-colors text-muted-foreground"
+                            >
+                              ✕
+                            </button>
+                          </>
+                        )
+                      })()}
+                    </motion.div>
                   )}
                 </div>
 
@@ -125,7 +180,7 @@ function DashboardContent() {
                       )}
                       {activeTab === "notes" && showTabs && (
                         <div className="flex-1 min-h-0 border rounded-lg overflow-hidden relative bg-muted/20">
-                          <CanvasEditor projectId={selectedProjectId} />
+                          <CanvasEditor projectId={selectedProjectId} onNoteSelect={setSelectedNoteId} />
                         </div>
                       )}
                       {activeTab === "simple-notes" && showTabs && (

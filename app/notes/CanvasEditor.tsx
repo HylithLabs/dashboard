@@ -5,7 +5,6 @@ import { toast } from "sonner"
 import { NoteCard } from "@/components/canvas/NoteCard"
 import { CanvasToolbar } from "@/components/canvas/CanvasToolbar"
 import { Minimap } from "@/components/canvas/Minimap"
-import { ContextMenu } from "@/components/canvas/ContextMenu"
 import { useCanvasState } from "@/hooks/use-canvas-state"
 import { useCanvasEvents } from "@/hooks/use-canvas-events"
 import { NoteBox, NoteConnection, Priority, ChecklistItem } from "@/types/canvas"
@@ -17,6 +16,7 @@ import { Move, Target, Navigation, PlusIcon } from "lucide-react"
 
 interface CanvasEditorProps {
   projectId?: string | null
+  onNoteSelect?: (noteId: string | null) => void
 }
 
 const scrollbarHideStyles = `
@@ -29,7 +29,7 @@ const scrollbarHideStyles = `
   }
 `
 
-export function CanvasEditor({ projectId }: CanvasEditorProps) {
+export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
   const {
     notes, setNotes,
     connections, setConnections,
@@ -49,7 +49,6 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
   const [isDraggingCanvas, setIsDraggingCanvas] = React.useState(false)
   const [canvasDragStart, setCanvasDragStart] = React.useState({ mouseX: 0, mouseY: 0, cameraX: 0, cameraY: 0 })
   
-  const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; noteId: string } | null>(null)
   const [colorPickerOpen, setColorPickerOpen] = React.useState<string | null>(null)
   const [colorPickerPos, setColorPickerPos] = React.useState({ x: 0, y: 0 })
   const [templateMenuOpen, setTemplateMenuOpen] = React.useState(false)
@@ -155,9 +154,9 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     const container = containerRef.current
     if (!container) return
     const handleWheel = (e: WheelEvent) => {
-      if (contextMenu || colorPickerOpen) {
+      if (colorPickerOpen) {
         const target = e.target as HTMLElement
-        if (target.closest('.context-menu-scrollable') || target.closest('.color-picker-popup')) return
+        if (target.closest('.color-picker-popup')) return
       }
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
@@ -177,11 +176,57 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
     }
     container.addEventListener('wheel', handleWheel, { passive: false })
     return () => container.removeEventListener('wheel', handleWheel)
-  }, [zoom, camera, contextMenu, colorPickerOpen, setZoom, setCamera])
+  }, [zoom, camera, colorPickerOpen, setZoom, setCamera])
 
   React.useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Handle note actions from dashboard navigation bar
+  React.useEffect(() => {
+    const handleNoteAction = (event: CustomEvent<{ action: string; noteId: string; color?: string }>) => {
+      const { action, noteId, color } = event.detail
+      const note = notes.find(n => n.id === noteId)
+      if (!note) return
+
+      switch (action) {
+        case 'home':
+          const newX = snapPosition(-note.width / 2, snapToGrid)
+          const newY = snapPosition(-note.height / 2, snapToGrid)
+          setNotes(notes.map(n => n.id === noteId ? { ...n, x: newX, y: newY } : n))
+          setCamera({ x: newX + note.width / 2 - containerSize.width / (2 * zoom), y: newY + note.height / 2 - containerSize.height / (2 * zoom) })
+          break
+        case 'view':
+          const center = screenToWorld(containerSize.width / 2, containerSize.height / 2, camera, zoom)
+          setNotes(notes.map(n => n.id === noteId ? { ...n, x: snapPosition(center.x - note.width / 2, snapToGrid), y: snapPosition(center.y - note.height / 2, snapToGrid) } : n))
+          break
+        case 'goto':
+          setCamera({ x: note.x + note.width / 2 - containerSize.width / (2 * zoom), y: note.y + note.height / 2 - containerSize.height / (2 * zoom) })
+          setSelectedNotes(new Set([noteId]))
+          break
+        case 'pin':
+          setNotes(notes.map(n => n.id === noteId ? { ...n, isPinned: !n.isPinned } : n))
+          break
+        case 'duplicate':
+          const now = Date.now()
+          const newNote = { ...JSON.parse(JSON.stringify(note)), id: now.toString(), x: note.x + 30, y: note.y + 30, createdAt: now, updatedAt: now }
+          setNotes([...notes, newNote])
+          break
+        case 'connect':
+          setConnectingFrom(noteId)
+          break
+        case 'color':
+          if (color) {
+            setNotes(notes.map(n => n.id === noteId ? { ...n, color } : n))
+            void saveData()
+          }
+          break
+      }
+    }
+
+    window.addEventListener('canvas-note-action', handleNoteAction as EventListener)
+    return () => window.removeEventListener('canvas-note-action', handleNoteAction as EventListener)
+  }, [notes, camera, zoom, containerSize, snapToGrid, saveData])
 
   React.useEffect(() => {
     const intervalId = setInterval(saveData, AUTOSAVE_INTERVAL)
@@ -260,9 +305,9 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
       e.preventDefault()
       setIsDraggingCanvas(true)
       setCanvasDragStart({ mouseX: e.clientX, mouseY: e.clientY, cameraX: camera.x, cameraY: camera.y })
-      setContextMenu(null)
       setColorPickerOpen(null)
       setTemplateMenuOpen(false)
+      onNoteSelect?.(null)
       if (!e.shiftKey) setSelectedNotes(new Set())
     }
   }
@@ -336,17 +381,13 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
                 e.stopPropagation()
                 if (e.shiftKey) {
                   setSelectedNotes(prev => { const newSet = new Set(prev); if (newSet.has(note.id)) newSet.delete(note.id); else newSet.add(note.id); return newSet })
+                  onNoteSelect?.(selectedNotes.has(note.id) ? null : note.id)
                 } else if (connectingFrom) {
                    // handled in mousedown
                 } else {
                   setSelectedNotes(new Set([note.id]))
+                  onNoteSelect?.(note.id)
                 }
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                const position = getMenuPosition(e.clientX, e.clientY, 220, 480)
-                setContextMenu({ x: position.x, y: position.y, noteId: note.id })
               }}
               onUpdate={(updates) => setNotes(notes.map(n => n.id === note.id ? { ...n, ...updates, updatedAt: Date.now() } : n))}
               onDelete={async () => {
@@ -475,62 +516,6 @@ export function CanvasEditor({ projectId }: CanvasEditorProps) {
           </div>
         )}
 
-        {contextMenu && (
-          <ContextMenu
-            x={contextMenu.x} y={contextMenu.y}
-            note={notes.find(n => n.id === contextMenu.noteId)!}
-            onClose={() => setContextMenu(null)}
-            onMoveToHome={() => {
-              const note = notes.find(n => n.id === contextMenu.noteId)!
-              const newX = snapPosition(-note.width / 2, snapToGrid)
-              const newY = snapPosition(-note.height / 2, snapToGrid)
-              setNotes(notes.map(n => n.id === contextMenu.noteId ? { ...n, x: newX, y: newY } : n))
-              setCamera({ x: newX + note.width / 2 - containerSize.width / (2 * zoom), y: newY + note.height / 2 - containerSize.height / (2 * zoom) })
-              setContextMenu(null)
-            }}
-            onMoveToCurrentView={() => {
-              const note = notes.find(n => n.id === contextMenu.noteId)!
-              const center = screenToWorld(containerSize.width / 2, containerSize.height / 2, camera, zoom)
-              setNotes(notes.map(n => n.id === contextMenu.noteId ? { ...n, x: snapPosition(center.x - note.width / 2, snapToGrid), y: snapPosition(center.y - note.height / 2, snapToGrid) } : n))
-              setContextMenu(null)
-            }}
-            onGoToNote={() => {
-              const note = notes.find(n => n.id === contextMenu.noteId)!
-              setCamera({ x: note.x + note.width / 2 - containerSize.width / (2 * zoom), y: note.y + note.height / 2 - containerSize.height / (2 * zoom) })
-              setSelectedNotes(new Set([note.id]))
-              setContextMenu(null)
-            }}
-            onTogglePin={() => { setNotes(notes.map(n => n.id === contextMenu.noteId ? { ...n, isPinned: !n.isPinned } : n)); setContextMenu(null) }}
-            onDuplicate={() => {
-              const note = notes.find(n => n.id === contextMenu.noteId)!
-              const now = Date.now()
-              const newNote = { ...JSON.parse(JSON.stringify(note)), id: now.toString(), x: note.x + 30, y: note.y + 30, createdAt: now, updatedAt: now }
-              setNotes([...notes, newNote])
-              setContextMenu(null)
-            }}
-            onToggleType={() => {
-              const note = notes.find(n => n.id === contextMenu.noteId)
-              if (!note) return
-              if (note.type === "note") {
-                const items: ChecklistItem[] = note.text.split('\n').filter(line => line.trim()).map((line, i) => ({ id: `${Date.now()}-${i}`, text: line.trim(), checked: false }))
-                if (items.length === 0) items.push({ id: `${Date.now()}-0`, text: "", checked: false })
-                setNotes(notes.map(n => n.id === contextMenu.noteId ? { ...n, type: "checklist", checklist: items, text: "", updatedAt: Date.now() } : n))
-              } else {
-                const text = note.checklist.map(item => `${item.checked ? '✓' : '○'} ${item.text}`).join('\n')
-                setNotes(notes.map(n => n.id === contextMenu.noteId ? { ...n, type: "note", text, checklist: [], updatedAt: Date.now() } : n))
-              }
-              setContextMenu(null)
-              void saveData()
-            }}
-            onConnect={() => { setConnectingFrom(contextMenu.noteId); setContextMenu(null) }}
-            onAddTag={() => { setTagInput({ noteId: contextMenu.noteId, value: "" }); setContextMenu(null) }}
-            onUpdatePriority={(p) => { setNotes(notes.map(n => n.id === contextMenu.noteId ? { ...n, priority: p } : n)); setContextMenu(null) }}
-            onBringToFront={() => { setNotes(notes.map(n => n.id === contextMenu.noteId ? { ...n, zIndex: Math.max(0, ...notes.map(n2 => n2.zIndex)) + 1 } : n)); setContextMenu(null) }}
-            onSendToBack={() => { setNotes(notes.map(n => n.id === contextMenu.noteId ? { ...n, zIndex: Math.min(...notes.map(n2 => n2.zIndex)) - 1 } : n)); setContextMenu(null) }}
-            onToggleHide={() => { setNotes(notes.map(n => n.id === contextMenu.noteId ? { ...n, isHidden: !n.isHidden } : n)); setContextMenu(null) }}
-            onDelete={() => { setNotes(notes.filter(n => n.id !== contextMenu.noteId)); setContextMenu(null) }}
-          />
-        )}
       </div>
     </>
   )

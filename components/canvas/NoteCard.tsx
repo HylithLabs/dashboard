@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  MoreHorizontal,
   CheckSquare,
   Square,
   Tag,
@@ -29,7 +28,6 @@ interface NoteCardProps {
   onMouseDown: (e: React.MouseEvent) => void
   onResizeMouseDown: (e: React.MouseEvent) => void
   onClick: (e: React.MouseEvent) => void
-  onContextMenu: (e: React.MouseEvent) => void
   onUpdate: (updates: Partial<NoteBox>) => void
   onDelete: () => void
   onToggleCollapse: () => void
@@ -74,7 +72,6 @@ export function NoteCard({
   onMouseDown,
   onResizeMouseDown,
   onClick,
-  onContextMenu,
   onUpdate,
   onDelete,
   onToggleCollapse,
@@ -112,7 +109,6 @@ export function NoteCard({
         zIndex: note.zIndex
       }}
       onClick={onClick}
-      onContextMenu={onContextMenu}
     >
       {note.priority !== "none" && <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: PRIORITY_COLORS[note.priority] }} />}
 
@@ -145,9 +141,6 @@ export function NoteCard({
         <button className="p-0.5 rounded hover:bg-white/20 text-white/70" onMouseDown={(e) => e.stopPropagation()} onClick={onToggleCollapse}>
           {note.isCollapsed ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
         </button>
-        <button className="p-0.5 rounded hover:bg-white/20 text-white/70" onMouseDown={(e) => e.stopPropagation()} onClick={onContextMenu}>
-          <MoreHorizontal className="size-4" />
-        </button>
         <button className="p-0.5 rounded hover:bg-white/20 text-white/70 hover:text-white" onMouseDown={(e) => e.stopPropagation()} onClick={onDelete}>
           <X className="size-4" />
         </button>
@@ -156,7 +149,7 @@ export function NoteCard({
       {/* Content */}
       {!note.isCollapsed && (
         <div className="p-3" style={{ cursor: 'default' }} onMouseDown={(e) => e.stopPropagation()}>
-          {note.tags.length > 0 && (
+          {note.tags?.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
               {note.tags.map(tag => (
                 <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: `${note.color}30`, color: textColor }}>
