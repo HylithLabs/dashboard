@@ -19,33 +19,28 @@ import {
   SettingsIcon,
   ChevronRightIcon,
   UserPlusIcon,
+  InboxIcon,
 } from "lucide-react"
 import { NavProjects } from "./nav-projects"
 import { useProjects } from "./projects-context"
-import { useEffect } from "react"
-import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-
-const ADMIN_EMAIL = "jotirmoybhowmik1976@gmail.com"
+import { useAuth } from "@/context/auth-context"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { selectProject, setActiveTab, activeTab, selectedProjectId } = useProjects()
-
-  const [storedEmail, setstoredEmail] = useState("")
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [role, setRole] = useState("")
-
-  useEffect(() => {
-    const email = localStorage.getItem("email")
-    const userRole = localStorage.getItem("role")
-    setstoredEmail(email || "")
-    setRole(userRole || "")
-    setIsAdmin(email === ADMIN_EMAIL || userRole === "admin")
-  }, [])
+  const { isAdmin } = useAuth()
 
   // Secondary items for the footer
-  const bottomItems = [
+  type BottomItem = {
+    title: string
+    icon: React.ComponentType<{ className?: string }>
+    onClick?: () => void
+    isActive?: boolean
+    url?: string
+    hasArrow?: boolean
+  }
+  const bottomItems: BottomItem[] = [
     ...(isAdmin ? [{ 
       title: "Users", 
       icon: UserPlusIcon, 
@@ -58,14 +53,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     { title: "Settings", url: "#", icon: SettingsIcon, hasArrow: true },
   ]
 
-  const data = {
-    user: {
-      name: storedEmail.split('@')[0],
-      email: storedEmail,
-      avatar: "",
-    },
-  }
-  
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader className="px-4 py-3">
@@ -90,13 +77,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-4 mt-10">
         <motion.div
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          {/* All Todos - Dashboard */}
+        > 
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -111,6 +97,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <span>All Todos</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => {
+                  selectProject(null)
+                  setActiveTab("tasks-from-others")
+                }}
+                className="w-full justify-start"
+                isActive={!selectedProjectId && activeTab === "tasks-from-others"}
+              >
+                <InboxIcon className="size-4" />
+                <span>Tasks from others</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
 
           {/* Projects Section */}
@@ -118,12 +117,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </motion.div>
       </SidebarContent>
 
-      <SidebarFooter className="gap-0 border-t">
-        {/* Secondary Navigation (Users & Settings) */}
+      <SidebarFooter className="gap-0 border-t"> 
         <SidebarGroup className="py-2">
           <SidebarGroupContent>
             <SidebarMenu className="capitalize">
-              {bottomItems.map((item: any) => (
+              {bottomItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     onClick={item.onClick}
@@ -154,7 +152,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
 
         <div className="px-2 pb-4">
-          <NavUser user={data.user} />
+          <NavUser />
         </div>
       </SidebarFooter>
     </Sidebar>

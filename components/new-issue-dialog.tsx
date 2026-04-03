@@ -42,6 +42,7 @@ export const issueSchema = z.object({
   description: z.string().optional(),
   status: z.literal("in-progress"), // Always In Progress
   priority: z.enum(["no-priority", "urgent", "high", "medium", "low"]),
+  assignedToEmail: z.string().email().optional(),
 });
 
 export type Issue = z.infer<typeof issueSchema>;
@@ -49,11 +50,15 @@ export type Issue = z.infer<typeof issueSchema>;
 interface NewIssueDialogProps {
   children?: React.ReactNode;
   onIssueCreated?: (issue: Issue) => void;
+  showAssigneeField?: boolean;
+  assigneeOptions?: string[];
 }
 
 export function NewIssueDialog({
   children,
   onIssueCreated,
+  showAssigneeField = false,
+  assigneeOptions = [],
 }: NewIssueDialogProps) {
   const isMobile = useIsMobile();
   const [open, setOpen] = React.useState(false);
@@ -62,6 +67,7 @@ export function NewIssueDialog({
   const [priority, setPriority] = React.useState<
     (typeof priorityOptions)[number] | null
   >(null);
+  const [assignedToEmail, setAssignedToEmail] = React.useState<string | null>(null);
   const [createMore, setCreateMore] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -77,6 +83,7 @@ export function NewIssueDialog({
       description: description.trim(),
       status: "in-progress",
       priority: priority?.value ?? "medium",
+      assignedToEmail: assignedToEmail ?? undefined,
     };
     await new Promise((resolve) => setTimeout(resolve, 500));
     toast.success("Issue created successfully");
@@ -85,12 +92,14 @@ export function NewIssueDialog({
       setTitle("");
       setDescription("");
       setPriority(null);
+      setAssignedToEmail(null);
     } else {
       setOpen(false);
       setTimeout(() => {
         setTitle("");
         setDescription("");
         setPriority(null);
+        setAssignedToEmail(null);
       }, 200);
     }
     setIsSubmitting(false);
@@ -151,7 +160,6 @@ export function NewIssueDialog({
               />
             </div>
             <div className="flex flex-wrap items-center gap-2 px-3">
-              {/* Priority Dropdown */}
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger
                   type="button"
@@ -178,6 +186,44 @@ export function NewIssueDialog({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              {showAssigneeField && (
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger
+                    type="button"
+                    className="inline-flex shrink-0 items-center justify-center rounded-md border border-border bg-background shadow-xs hover:bg-muted text-foreground h-7 px-2 text-xs font-medium outline-none transition-all"
+                  >
+                    {assignedToEmail ? `Assign: ${assignedToEmail}` : "Assign"}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-56 z-[100] bg-popover border rounded-md shadow-md p-1 pointer-events-auto"
+                  >
+                    <DropdownMenuItem
+                      onPointerDown={() => setAssignedToEmail(null)}
+                      onClick={() => setAssignedToEmail(null)}
+                      className="gap-2 cursor-pointer"
+                    >
+                      <span className="flex-1 text-sm">Myself</span>
+                      {!assignedToEmail && (
+                        <CheckCircle2Icon className="size-4 text-primary" />
+                      )}
+                    </DropdownMenuItem>
+                    {assigneeOptions.map((email) => (
+                      <DropdownMenuItem
+                        key={email}
+                        onPointerDown={() => setAssignedToEmail(email)}
+                        onClick={() => setAssignedToEmail(email)}
+                        className="gap-2 cursor-pointer"
+                      >
+                        <span className="flex-1 text-sm truncate">{email}</span>
+                        {assignedToEmail === email && (
+                          <CheckCircle2Icon className="size-4 text-primary" />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </div>
 

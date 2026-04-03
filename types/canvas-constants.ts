@@ -30,8 +30,8 @@ export const NOTE_TEMPLATES = [
   { name: "Blank Note", title: "", text: "", type: "note" as NoteType },
   { name: "To-Do List", title: "To-Do", text: "", type: "checklist" as NoteType },
   { name: "Meeting Notes", title: "Meeting Notes", text: "Date:\nAttendees:\n\nAgenda:\n- \n\nAction Items:\n- ", type: "note" as NoteType },
-  { name: "Idea", title: "💡 Idea", text: "", type: "note" as NoteType },
-  { name: "Bug Report", title: "🐛 Bug", text: "Description:\n\nSteps to Reproduce:\n1. \n\nExpected:\n\nActual:", type: "note" as NoteType },
+  { name: "Idea", title: "Idea", text: "", type: "note" as NoteType },
+  { name: "Bug Report", title: "Bug", text: "Description:\n\nSteps to Reproduce:\n1. \n\nExpected:\n\nActual:", type: "note" as NoteType },
 ]
 
 export const GRID_SIZE = 20

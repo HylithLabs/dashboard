@@ -2,12 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { toast } from "sonner"
-import axios from "axios"
-
 import {
   Select,
   SelectContent,
@@ -15,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-
-import { UserPlusIcon, KeyIcon, ShieldIcon, AtSignIcon } from "lucide-react"
+import { toast } from "sonner"
+import axios from "axios"
+import { api } from "@/lib/api"
 import { motion } from "framer-motion"
 
 export function AddUserForm({ onUserAdded }: { onUserAdded?: () => void }) {
@@ -30,13 +27,12 @@ export function AddUserForm({ onUserAdded }: { onUserAdded?: () => void }) {
   useEffect(() => {
     const fetchRoles = async () => {
       try {
-        const userEmail = localStorage.getItem("email")
-        const response = await axios.get(`/api/roles?email=${userEmail}`)
+        const response = await axios.get(`/api/roles`)
         if (response.data.success) {
           setRoles(response.data.data)
         }
       } catch (error) {
-        console.error("Failed to fetch roles")
+        console.error("Failed to fetch roles:", error)
       }
     }
     fetchRoles()
@@ -59,16 +55,13 @@ export function AddUserForm({ onUserAdded }: { onUserAdded?: () => void }) {
     const loadingToast = toast.loading("Provisioning new account...")
 
     try {
-      const adminEmail = localStorage.getItem("email")
-      
-      const response = await axios.post("/api/users", {
+      const response = await api.users.create({
         email,
         password,
         role,
-        adminEmail,
       })
 
-      if (response.data.success) {
+      if (response.success) {
         toast.success("Account created and ready for use", { id: loadingToast })
         setEmail("")
         setPassword("")
@@ -76,10 +69,12 @@ export function AddUserForm({ onUserAdded }: { onUserAdded?: () => void }) {
         setRole("user")
         onUserAdded?.()
       } else {
-        toast.error(response.data.message || "Failed to create user", { id: loadingToast })
+        toast.error(response.message || "Failed to create user", { id: loadingToast })
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create user", { id: loadingToast })
+    } catch (error: unknown) {
+      console.error("User creation error:", error)
+      const message = error instanceof Error ? error.message : "Failed to create user"
+      toast.error(message, { id: loadingToast })
     } finally {
       setLoading(false)
     }

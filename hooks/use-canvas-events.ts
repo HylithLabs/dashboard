@@ -2,13 +2,10 @@
 
 import * as React from "react"
 import { NoteBox } from "@/types/canvas"
-import { toast } from "sonner"
 
 interface UseCanvasEventsProps {
   zoom: number
   setZoom: React.Dispatch<React.SetStateAction<number>>
-  camera: { x: number; y: number }
-  setCamera: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>
   undo: () => void
   redo: () => void
   notes: NoteBox[]
@@ -18,14 +15,11 @@ interface UseCanvasEventsProps {
   addNote: () => void
   onSearchOpen: () => void
   resetView: () => void
-  containerSize: { width: number; height: number }
 }
 
 export function useCanvasEvents({
   zoom,
   setZoom,
-  camera,
-  setCamera,
   undo,
   redo,
   notes,
@@ -35,7 +29,6 @@ export function useCanvasEvents({
   addNote,
   onSearchOpen,
   resetView,
-  containerSize,
 }: UseCanvasEventsProps) {
   const [isSpacePressed, setIsSpacePressed] = React.useState(false)
 

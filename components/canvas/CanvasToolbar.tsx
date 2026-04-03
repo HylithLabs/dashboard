@@ -13,10 +13,14 @@ import {
   Sun,
   Moon,
   Home,
-  PlusIcon,
   ArrowUp,
   ArrowDown,
   X,
+  FileText,
+  CheckSquare,
+  Users,
+  Lightbulb,
+  Bug,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -47,7 +51,7 @@ interface CanvasToolbarProps {
   onAddNote: () => void
   onToggleTemplateMenu: () => void
   templateMenuOpen: boolean
-  templates: any[]
+  templates: { name: string; title: string; text: string; type: string }[]
 }
 
 export function CanvasToolbar({
@@ -120,6 +124,10 @@ export function CanvasToolbar({
             placeholder="Search notes... (Enter = next)"
             value={searchQuery}
             onChange={(e) => onSearchQueryChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); onGoToNextSearch() }
+              if (e.key === 'Escape') { onToggleSearch() }
+            }}
           />
           {searchResultsCount > 0 && (
             <div className="flex items-center gap-1">
@@ -135,40 +143,27 @@ export function CanvasToolbar({
 
       {templateMenuOpen && (
         <div className="absolute bottom-20 right-6 bg-black/90 border border-white/20 rounded-lg overflow-hidden shadow-xl z-50">
-          {templates.map((template, i) => (
-            <button
-              key={i}
-              className="w-full px-4 py-2 text-sm text-white text-left hover:bg-white/10 flex items-center gap-2"
-              onClick={() => {
-                onAddNote()
-                onToggleTemplateMenu()
-              }}
-            >
-              {template.type === "checklist" ? <CheckSquare className="size-4" /> : <div className="size-4" />}{template.name}
-            </button>
-          ))}
+          {templates.map((template, i) => {
+            const Icon = template.type === "checklist" ? CheckSquare : 
+                        template.name === "Idea" ? Lightbulb :
+                        template.name === "Bug Report" ? Bug :
+                        template.name === "Meeting Notes" ? Users : FileText;
+            return (
+              <button
+                key={i}
+                className="w-full px-4 py-2 text-sm text-white text-left hover:bg-white/10 flex items-center gap-3"
+                onClick={() => {
+                  onAddNote()
+                  onToggleTemplateMenu()
+                }}
+              >
+                <Icon className="size-4 opacity-70" />
+                {template.name}
+              </button>
+            )
+          })}
         </div>
       )}
     </>
-  )
-}
-
-function CheckSquare({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <rect width="18" height="18" x="3" y="3" rx="2" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
   )
 }

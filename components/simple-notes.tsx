@@ -23,13 +23,13 @@ export function SimpleNotes({ projectId }: { projectId: string | null }) {
   const loadNotes = React.useCallback(async () => {
     setLoading(true)
     try {
-      const userEmail = localStorage.getItem("email") || ""
-      const res = await api.simpleNotes.getAll(projectId, userEmail)
+      const res = await api.simpleNotes.getAll(projectId)
       
       if (res.success && res.data) {
         setNotes(res.data)
       }
     } catch (error) {
+      console.error("Load notes error:", error)
       toast.error("Failed to load notes")
     } finally {
       setLoading(false)
@@ -43,10 +43,8 @@ export function SimpleNotes({ projectId }: { projectId: string | null }) {
   const addNote = async () => {
     if (!newTitle.trim()) { toast.error("Title is required"); return }
     try {
-      const userEmail = localStorage.getItem("email") || ""
       const res = await api.simpleNotes.create({ 
         projectId, 
-        userEmail, 
         title: newTitle.trim(), 
         text: newContent.trim() 
       })
@@ -55,7 +53,10 @@ export function SimpleNotes({ projectId }: { projectId: string | null }) {
         setNewTitle(""); setNewContent(""); setAdding(false)
         toast.success("Note added")
       }
-    } catch { toast.error("Failed to add note") }
+    } catch (error) {
+      console.error("Error creating note:", error)
+      toast.error("Failed to create note")
+    }
   }
 
   const saveEdit = async (id: string) => {
@@ -221,7 +222,7 @@ export function SimpleNotes({ projectId }: { projectId: string | null }) {
                     {note.text && (
                       <p className="text-muted-foreground text-sm mt-2 whitespace-pre-wrap line-clamp-3">
                         {note.type === "checklist" ? 
-                          note.checklist?.map(i => `${i.checked ? '✓' : '○'} ${i.text}`).join('\n') : 
+                          note.checklist?.map(i => `${i.checked ? '[x]' : '[ ]'} ${i.text}`).join('\n') : 
                           note.text
                         }
                       </p>

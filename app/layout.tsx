@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import { ProjectsProvider } from "@/components/projects-context";
+import { AuthProvider } from "@/context/auth-context";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
@@ -31,9 +31,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} dark antialiased`}
       >
-        <ProjectsProvider>
+        <AuthProvider>
           {children}
-        </ProjectsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

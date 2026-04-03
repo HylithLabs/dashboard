@@ -4,7 +4,10 @@ export interface Todo {
   description?: string
   status: "in-progress" | "done" | "cancelled" | "delayed"
   priority: "no-priority" | "urgent" | "high" | "medium" | "low"
-  projectId: string
+  projectId?: string | null
+  userEmail?: string
+  assignedToEmail?: string
+  assignedByEmail?: string
   createdAt: string
   updatedAt?: string
 }

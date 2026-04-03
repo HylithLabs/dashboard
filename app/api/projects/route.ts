@@ -1,31 +1,42 @@
 import getClientPromise from "@/lib/mongodb"
 import { z } from "zod"
 import { ObjectId } from "mongodb"
+import { getSession } from "@/lib/auth"
 
-export const projectSchema = z.object({
+const projectSchema = z.object({
   name: z.string().min(1, "Project name required"),
-  userEmail: z.string().email().optional(),
 })
 
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url)
-    const email = url.searchParams.get("email")
+    const session = await getSession(req)
+    if (!session) {
+      return Response.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    }
 
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
-    const query = email ? { userEmail: email } : {}
-    const projects = await db.collection("projects").find(query).sort({ createdAt: -1 }).toArray()
-    
+    const projects = await db
+      .collection("projects")
+      .find({ userEmail: session.email })
+      .sort({ createdAt: -1 })
+      .toArray()
+
     return Response.json({ success: true, data: projects })
   } catch (error) {
+    console.error("Fetch projects error:", error)
     return Response.json({ success: false, message: "Failed to fetch projects" }, { status: 500 })
   }
 }
 
 export async function POST(req: Request) {
   try {
+    const session = await getSession(req)
+    if (!session) {
+      return Response.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await req.json()
     const parsed = projectSchema.parse(body)
 
@@ -34,7 +45,8 @@ export async function POST(req: Request) {
 
     const now = new Date()
     const newProject = {
-      ...parsed,
+      name: parsed.name,
+      userEmail: session.email,
       createdAt: now,
       updatedAt: now,
     }
@@ -45,13 +57,14 @@ export async function POST(req: Request) {
       data: {
         id: result.insertedId.toString(),
         name: parsed.name,
-        createdAt: now.toISOString()
-      }
+        createdAt: now.toISOString(),
+      },
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return Response.json({ success: false, message: error.issues[0].message }, { status: 400 })
     }
+    console.error("Create project error:", error)
     return Response.json({ success: false, message: "Failed to create project" }, { status: 500 })
   }
 }
@@ -75,6 +88,7 @@ export async function DELETE(req: Request) {
     }
     return Response.json({ success: true })
   } catch (error) {
+    console.error("Delete project error:", error)
     return Response.json({ success: false, message: "Failed to delete project" }, { status: 500 })
   }
 }

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { PlusIcon, XIcon, Maximize2Icon } from "lucide-react"
+import { XIcon } from "lucide-react"
 import { toast } from "sonner"
 
 export type ProjectCreated = { id: string; name: string }
@@ -38,11 +38,10 @@ export function NewProjectDialog({ children, onProjectCreated }: NewProjectDialo
     }
     setIsSubmitting(true)
     try {
-      const userEmail = localStorage.getItem("email")
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), userEmail }),
+        body: JSON.stringify({ name: name.trim() }),
       })
       const json = await res.json()
       if (json.success) {
@@ -54,6 +53,7 @@ export function NewProjectDialog({ children, onProjectCreated }: NewProjectDialo
         toast.error(json.message ?? "Failed to create project")
       }
     } catch (err) {
+      console.error("Project creation error:", err)
       toast.error("Error creating project")
     } finally {
       setIsSubmitting(false)

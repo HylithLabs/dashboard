@@ -7,15 +7,29 @@ import { DataTable } from "@/components/data-table"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { toast } from 'sonner'
-import { CheckSquareIcon, FileTextIcon, LayoutIcon, UsersIcon, ShieldCheckIcon, UserPlusIcon } from "lucide-react"
+import { 
+  UsersIcon, 
+  ShieldCheckIcon, 
+  UserPlusIcon,
+  Home,
+  Eye,
+  MapPin,
+  Pin,
+  Copy,
+  Link2,
+  Palette,
+  X
+} from "lucide-react"
 import { SimpleNotes } from "@/components/simple-notes"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UsersTable } from "@/components/users-table"
 import { RolesManagement } from "@/components/roles-management"
 import { AddUserForm } from "@/components/add-user-form"
 import { motion, AnimatePresence } from "framer-motion"
+
+import { useAuth } from "@/context/auth-context"
 
 const CanvasEditor = dynamic(
   () => import("@/app/notes/CanvasEditor").then((mod) => mod.CanvasEditor),
@@ -31,51 +45,35 @@ const CanvasEditor = dynamic(
 
 function DashboardContent() {
   const router = useRouter()
-  const { selectedProjectId, projects, getAllTodos, getCurrentProjectTodos, activeTab, setActiveTab } = useProjects()
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const { user, isAdmin, isLoading: authLoading } = useAuth()
+  const { selectedProjectId, projects, getAllTodos, getCurrentProjectTodos, activeTab } = useProjects()
   const [selectedNoteId, setSelectedNoteId] = React.useState<string | null>(null)
   const [showColorPicker, setShowColorPicker] = React.useState(false)
 
   useEffect(() => {
-    const storedEmail = localStorage.getItem("email")
-    const storedRole = localStorage.getItem("role")
-
-    if (storedEmail && storedEmail !== "undefined") {
-      setIsAdmin(storedEmail === "jotirmoybhowmik1976@gmail.com" || storedRole === "admin")
-      const justLoggedIn = sessionStorage.getItem("justLoggedIn")
-      if (justLoggedIn) {
-        toast.success("Login successful")
-        sessionStorage.removeItem("justLoggedIn")
-      }
-      setIsLoaded(true)
-    } else {
+    if (!authLoading && !user) {
       router.push('/')
     }
-  }, [router])
+  }, [user, authLoading, router])
 
-  if (!isLoaded) return null
+  useEffect(() => {
+    const justLoggedIn = sessionStorage.getItem("justLoggedIn")
+    if (justLoggedIn) {
+      toast.success("Login successful")
+      sessionStorage.removeItem("justLoggedIn")
+    }
+  }, [])
+
+  if (authLoading || !user) return null
 
   const project = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : null
-  const pageTitle = project?.name || 'All Todos'
+  const pageTitle = project?.name || (activeTab === "tasks-from-others" ? "Tasks from others" : "All Todos")
 
   const todosToShow = selectedProjectId ? getCurrentProjectTodos() : getAllTodos()
   const showTabs = !!selectedProjectId || activeTab === "users"
 
-  const tabs = [
-    { key: "todos", label: "Todos", icon: CheckSquareIcon },
-    { key: "notes", label: "Canvas", icon: LayoutIcon },
-    { key: "simple-notes", label: "Notes", icon: FileTextIcon },
-  ]
-
   const isUsersTab = activeTab === "users" && isAdmin
   const isCanvasMode = activeTab === "notes" && showTabs
-
-  const handleNoteAction = (action: string) => {
-    if (!selectedNoteId) return
-    // Actions will be handled by CanvasEditor via callback
-    setSelectedNoteId(null)
-  }
 
   return (
     <>
@@ -101,35 +99,38 @@ function DashboardContent() {
                     >
                       {(() => {
                         const noteActions = [
-                          { label: "🏠 Home", action: "home" },
-                          { label: "🎯 View", action: "view" },
-                          { label: "📍 Go", action: "goto" },
-                          { label: "📌 Pin", action: "pin" },
-                          { label: "📋 Copy", action: "duplicate" },
-                          { label: "🔗 Link", action: "connect" },
+                          { label: "Home", action: "home", Icon: Home },
+                          { label: "View", action: "view", Icon: Eye },
+                          { label: "Go", action: "goto", Icon: MapPin },
+                          { label: "Pin", action: "pin", Icon: Pin },
+                          { label: "Copy", action: "duplicate", Icon: Copy },
+                          { label: "Link", action: "connect", Icon: Link2 },
                         ]
                         const colors = ["#3b82f6", "#ef4444", "#22c55e", "#eab308", "#a855f7", "#ec4899", "#06b6d4", "#f97316"]
                         return (
                           <>
                             <span className="text-xs text-muted-foreground px-2 font-medium">Note:</span>
-                            {noteActions.map(({ label, action }) => (
+                            {noteActions.map(({ label, action, Icon }) => (
                               <button
                                 key={action}
                                 onClick={() => {
                                   window.dispatchEvent(new CustomEvent('canvas-note-action', { detail: { action, noteId: selectedNoteId } }))
                                   setSelectedNoteId(null)
                                 }}
-                                className="text-xs px-2 py-1 rounded hover:bg-muted transition-colors"
+                                className="text-xs px-2 py-1 rounded hover:bg-muted transition-colors flex items-center gap-1.5"
+                                title={label}
                               >
+                                <Icon className="size-3.5 opacity-70" />
                                 {label}
                               </button>
                             ))}
                             <div className="relative">
                               <button
                                 onClick={() => setShowColorPicker(!showColorPicker)}
-                                className="text-xs px-2 py-1 rounded hover:bg-muted transition-colors"
+                                className="text-xs px-2 py-1 rounded hover:bg-muted transition-colors flex items-center gap-1.5"
                               >
-                                🎨 Color
+                                <Palette className="size-3.5 opacity-70" />
+                                Color
                               </button>
                               {showColorPicker && (
                                 <div className="absolute top-full right-0 mt-1 p-2 bg-background border rounded-lg shadow-lg z-50 flex gap-1">
@@ -152,7 +153,7 @@ function DashboardContent() {
                               onClick={() => setSelectedNoteId(null)}
                               className="text-xs px-2 py-1 rounded hover:bg-muted transition-colors text-muted-foreground"
                             >
-                              ✕
+                              <X className="size-3.5" />
                             </button>
                           </>
                         )
@@ -177,6 +178,13 @@ function DashboardContent() {
                     >
                       {activeTab === "todos" && (
                         <DataTable todos={todosToShow} selectedProjectId={selectedProjectId} />
+                      )}
+                      {activeTab === "tasks-from-others" && (
+                        <DataTable
+                          todos={getAllTodos()}
+                          selectedProjectId={null}
+                          mode="assignments"
+                        />
                       )}
                       {activeTab === "notes" && showTabs && (
                         <div className="flex-1 min-h-0 border rounded-lg overflow-hidden relative bg-muted/20">

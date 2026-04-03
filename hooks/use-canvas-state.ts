@@ -49,8 +49,7 @@ export function useCanvasState(projectId?: string | null) {
   const loadData = React.useCallback(async () => {
     if (!projectId) return
     try {
-      const userEmail = localStorage.getItem("email") || ""
-      const res = await api.notes.getAll(projectId, userEmail)
+      const res = await api.notes.getAll(projectId)
       
       if (res.success && res.data) {
         const { notes: loadedNotes, metadata } = res.data
@@ -74,13 +73,11 @@ export function useCanvasState(projectId?: string | null) {
   const saveData = React.useCallback(async () => {
     if (!projectId || isInitializing.current) return
     try {
-      const userEmail = localStorage.getItem("email") || ""
-      
       // 1. Save Metadata (Connections, Camera, Zoom)
       const metadata: CanvasMetadata = { connections, camera, zoom }
       const metadataStr = JSON.stringify(metadata)
       if (metadataStr !== lastSavedMetadata.current) {
-        const res = await api.notes.saveCanvasMetadata(projectId, userEmail, metadata)
+        const res = await api.notes.saveCanvasMetadata(projectId, metadata)
         if (res.success) lastSavedMetadata.current = metadataStr
       }
 

@@ -41,17 +41,26 @@ export function Minimap({
     })
     
     const padding = 100
-    return { minX: minX - padding, maxX: maxX + padding, minY: minY - padding, maxY: maxY + padding }
+    return { 
+      minX: Number.isFinite(minX) ? minX - padding : camera.x - padding, 
+      maxX: Number.isFinite(maxX) ? maxX + padding : camera.x + containerSize.width / zoom + padding, 
+      minY: Number.isFinite(minY) ? minY - padding : camera.y - padding, 
+      maxY: Number.isFinite(maxY) ? maxY + padding : camera.y + containerSize.height / zoom + padding 
+    }
   }, [visibleNotes, camera, containerSize, zoom])
   
-  const worldWidth = bounds.maxX - bounds.minX
-  const worldHeight = bounds.maxY - bounds.minY
-  const scale = Math.min((mapWidth - 20) / worldWidth, (mapHeight - 20) / worldHeight)
+  const worldWidth = Math.max(bounds.maxX - bounds.minX, 1)
+  const worldHeight = Math.max(bounds.maxY - bounds.minY, 1)
+  const scale = Math.min((mapWidth - 20) / worldWidth, (mapHeight - 20) / worldHeight) || 0.1
   
-  const worldToMinimap = (x: number, y: number) => ({
-    x: (x - bounds.minX) * scale + 10,
-    y: (y - bounds.minY) * scale + 10,
-  })
+  const worldToMinimap = (x: number, y: number) => {
+    const mx = (x - bounds.minX) * scale + 10
+    const my = (y - bounds.minY) * scale + 10
+    return { 
+      x: Number.isFinite(mx) ? mx : 0, 
+      y: Number.isFinite(my) ? my : 0 
+    }
+  }
   
   const viewportWorld = { left: camera.x, top: camera.y, width: containerSize.width / zoom, height: containerSize.height / zoom }
   const viewportMinimap = worldToMinimap(viewportWorld.left, viewportWorld.top)

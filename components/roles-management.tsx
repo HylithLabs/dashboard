@@ -9,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner"
 import axios from "axios"
 import { Badge } from "@/components/ui/badge"
-import { ShieldCheckIcon, ShieldPlusIcon, InfoIcon, HammerIcon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface Role {
@@ -28,12 +27,12 @@ export function RolesManagement({ onRolesChanged }: { onRolesChanged?: () => voi
 
   const fetchRoles = async () => {
     try {
-      const email = localStorage.getItem("email")
-      const response = await axios.get(`/api/roles?email=${email}`)
+      const response = await axios.get(`/api/roles`)
       if (response.data.success) {
         setRoles(response.data.data)
       }
     } catch (error) {
+      console.error("Error fetching roles:", error)
       toast.error("Failed to fetch roles")
     } finally {
       setLoading(false)
@@ -50,11 +49,9 @@ export function RolesManagement({ onRolesChanged }: { onRolesChanged?: () => voi
 
     setIsSubmitting(true)
     try {
-      const adminEmail = localStorage.getItem("email")
       const response = await axios.post("/api/roles", {
         name: newName.trim(),
         description: newDesc.trim(),
-        adminEmail
       })
 
       if (response.data.success) {
@@ -66,8 +63,9 @@ export function RolesManagement({ onRolesChanged }: { onRolesChanged?: () => voi
       } else {
         toast.error(response.data.message || "Failed to create role")
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create role")
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error) ? error.response?.data?.message : "Failed to create role"
+      toast.error(message || "Failed to create role")
     } finally {
       setIsSubmitting(false)
     }

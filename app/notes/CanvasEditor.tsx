@@ -7,12 +7,12 @@ import { CanvasToolbar } from "@/components/canvas/CanvasToolbar"
 import { Minimap } from "@/components/canvas/Minimap"
 import { useCanvasState } from "@/hooks/use-canvas-state"
 import { useCanvasEvents } from "@/hooks/use-canvas-events"
-import { NoteBox, NoteConnection, Priority, ChecklistItem } from "@/types/canvas"
+import { NoteBox } from "@/types/canvas"
 import { COLORS, NOTE_TEMPLATES, AUTOSAVE_INTERVAL } from "@/types/canvas-constants"
-import { snapPosition, screenToWorld, worldToScreen, getMenuPosition } from "@/lib/canvas-utils"
+import { snapPosition, screenToWorld, getMenuPosition } from "@/lib/canvas-utils"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
-import { Move, Target, Navigation, PlusIcon } from "lucide-react"
+import { Move, PlusIcon } from "lucide-react"
 
 interface CanvasEditorProps {
   projectId?: string | null
@@ -36,8 +36,7 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
     camera, setCamera,
     zoom, setZoom,
     undo, redo, canUndo, canRedo,
-    saveToHistory, loadData, saveData,
-    isInitializing
+    saveToHistory, loadData, saveData
   } = useCanvasState(projectId)
 
   const [containerSize, setContainerSize] = React.useState({ width: 1000, height: 800 })
@@ -60,24 +59,22 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
   const [showMiniMap, setShowMiniMap] = React.useState(true)
   const [darkMode, setDarkMode] = React.useState(true)
   const [connectingFrom, setConnectingFrom] = React.useState<string | null>(null)
-  const [tagInput, setTagInput] = React.useState<{ noteId: string; value: string } | null>(null)
+  const [tagInput, setTagInput] = React.useState<{ noteId: string, value: string } | null>(null)
 
   const containerRef = React.useRef<HTMLDivElement>(null)
 
   const resetView = React.useCallback(() => {
     setZoom(1)
     setCamera({ x: -containerSize.width / 2, y: -containerSize.height / 2 })
-  }, [containerSize])
+  }, [containerSize, setZoom, setCamera])
 
-  const addNote = React.useCallback(async (template?: typeof NOTE_TEMPLATES[0]) => {
+  const addNote = React.useCallback(async (template?: (typeof NOTE_TEMPLATES)[0]) => {
     if (!projectId) return
-    const userEmail = localStorage.getItem("email") || ""
     
     const now = Date.now()
     const center = screenToWorld(containerSize.width / 2, containerSize.height / 2, camera, zoom)
     const newNoteData: Partial<NoteBox> = {
       projectId,
-      userEmail,
       x: snapPosition(center.x - 125, snapToGrid),
       y: snapPosition(center.y - 75, snapToGrid),
       width: 250,
@@ -87,7 +84,7 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
       title: template?.title || "New Note",
       text: template?.text || "",
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      type: (template?.type as any) || "note",
+      type: (template?.type as NoteBox["type"]) || "note",
       checklist: template?.type === "checklist" ? [{ id: `${now}-0`, text: "", checked: false }] : [],
       isPinned: false,
       isCollapsed: false,
@@ -126,29 +123,31 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
       setSelectedNotes(new Set())
       toast.success(`${selectedNotes.size} notes deleted`)
     } catch (error) {
+      console.error("Delete note error:", error)
       toast.error("Failed to delete some notes")
     }
-  }, [selectedNotes, notes, connections, setNotes, setConnections, saveToHistory])
+  }, [selectedNotes, notes, connections, setNotes, setConnections, saveToHistory, setSelectedNotes])
 
   const { isSpacePressed } = useCanvasEvents({
-    zoom, setZoom, camera, setCamera,
+    zoom, setZoom,
     undo, redo, notes,
     selectedNotes, setSelectedNotes,
     deleteSelectedNotes, addNote,
     onSearchOpen: () => setSearchOpen(true),
-    resetView, containerSize
+    resetView
   })
 
   React.useEffect(() => {
     if (!containerRef.current) return
-    setContainerSize({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight })
+    const container = containerRef.current
+    setContainerSize({ width: container.clientWidth, height: container.clientHeight })
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (entry) setContainerSize({ width: entry.contentRect.width, height: entry.contentRect.height })
     })
-    observer.observe(containerRef.current)
+    observer.observe(container)
     return () => observer.disconnect()
-  }, [])
+  }, [setContainerSize])
 
   React.useEffect(() => {
     const container = containerRef.current
@@ -181,6 +180,24 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
   React.useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Search: filter notes by query
+  React.useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      setSearchIndex(0)
+      return
+    }
+    const q = searchQuery.toLowerCase()
+    const results = notes
+      .filter(n => !n.isHidden && (
+        (n.title || "").toLowerCase().includes(q) || 
+        (n.text || "").toLowerCase().includes(q)
+      ))
+      .map(n => n.id)
+    setSearchResults(results)
+    setSearchIndex(0)
+  }, [searchQuery, notes])
 
   // Handle note actions from dashboard navigation bar
   React.useEffect(() => {
@@ -226,7 +243,7 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
 
     window.addEventListener('canvas-note-action', handleNoteAction as EventListener)
     return () => window.removeEventListener('canvas-note-action', handleNoteAction as EventListener)
-  }, [notes, camera, zoom, containerSize, snapToGrid, saveData])
+  }, [notes, camera, zoom, containerSize, snapToGrid, saveData, setNotes, setCamera, setSelectedNotes, setConnectingFrom])
 
   React.useEffect(() => {
     const intervalId = setInterval(saveData, AUTOSAVE_INTERVAL)
@@ -242,7 +259,7 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
     }
   }, [saveData])
 
-  const handleNoteMouseDown = (e: React.MouseEvent, noteId: string) => {
+  const handleNoteMouseDown = React.useCallback((e: React.MouseEvent, noteId: string) => {
     if (isSpacePressed) return
     e.stopPropagation()
     const note = notes.find(n => n.id === noteId)
@@ -251,7 +268,7 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
       if (connectingFrom !== noteId) {
         const exists = connections.some(c => (c.fromNoteId === connectingFrom && c.toNoteId === noteId) || (c.fromNoteId === noteId && c.toNoteId === connectingFrom))
         if (!exists) {
-          setConnections([...connections, { id: Date.now().toString(), fromNoteId: connectingFrom, toNoteId: noteId, color: notes.find(n => n.id === connectingFrom)?.color || "#fff" }])
+          setConnections([...connections, { id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, fromNoteId: connectingFrom, toNoteId: noteId, color: notes.find(n => n.id === connectingFrom)?.color || "#fff" }])
           toast.success("Notes connected")
         }
         setConnectingFrom(null)
@@ -264,9 +281,9 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
     if (!rect) return
     const mouseWorld = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, camera, zoom)
     setDragOffset({ x: mouseWorld.x - note.x, y: mouseWorld.y - note.y })
-  }
+  }, [isSpacePressed, notes, connectingFrom, connections, setConnections, setNotes, camera, zoom])
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = React.useCallback((e: React.MouseEvent) => {
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
     if (draggingNote) {
@@ -285,9 +302,9 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
       const deltaY = e.clientY - canvasDragStart.mouseY
       setCamera({ x: canvasDragStart.cameraX - deltaX / zoom, y: canvasDragStart.cameraY - deltaY / zoom })
     }
-  }
+  }, [draggingNote, camera, zoom, snapToGrid, notes, setNotes, resizingNote, resizeStart, isDraggingCanvas, canvasDragStart, setCamera, dragOffset])
 
-  const handleMouseUp = () => {
+  const handleMouseUp = React.useCallback(() => {
     if (draggingNote || resizingNote) {
       saveToHistory(notes)
       void saveData()
@@ -295,9 +312,9 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
     setDraggingNote(null)
     setResizingNote(null)
     setIsDraggingCanvas(false)
-  }
+  }, [draggingNote, resizingNote, saveToHistory, notes, saveData])
 
-  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+  const handleCanvasMouseDown = React.useCallback((e: React.MouseEvent) => {
     const isMiddleButton = e.button === 1
     const isSpacePan = isSpacePressed && e.button === 0
     const isEmptyCanvas = (e.target as HTMLElement).classList.contains('canvas-bg')
@@ -310,7 +327,7 @@ export function CanvasEditor({ projectId, onNoteSelect }: CanvasEditorProps) {
       onNoteSelect?.(null)
       if (!e.shiftKey) setSelectedNotes(new Set())
     }
-  }
+  }, [isSpacePressed, camera, onNoteSelect])
 
   const bgColor = darkMode ? '#0a0a0a' : '#f5f5f5'
   const dotColor = darkMode ? '#333' : '#ccc'

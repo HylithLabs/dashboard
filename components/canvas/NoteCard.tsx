@@ -13,6 +13,9 @@ import {
   Clock,
   AlertCircle,
   Star,
+  Users,
+  Lightbulb,
+  Bug,
 } from "lucide-react"
 import { NoteBox, Priority, ChecklistItem } from "@/types/canvas"
 import { PRIORITY_COLORS } from "@/types/canvas-constants"
@@ -119,8 +122,16 @@ export function NoteCard({
         onMouseDown={onMouseDown}
       >
         <GripVerticalIcon className="size-4 text-white/70 flex-shrink-0" />
-        {note.isPinned && <Pin className="size-3 text-white/70" />}
-        {note.priority !== "none" && <span style={{ color: PRIORITY_COLORS[note.priority] }}>{PRIORITY_ICONS[note.priority]}</span>}
+        {(() => {
+          const title = (note.title || "").toLowerCase();
+          const Icon = note.type === "checklist" ? CheckSquare :
+                      title.includes("idea") ? Lightbulb :
+                      title.includes("bug") ? Bug :
+                      title.includes("meeting") ? Users : null;
+          return Icon && <Icon className="size-3.5 text-white/70 flex-shrink-0" />
+        })()}
+        {note.isPinned && <Pin className="size-3 text-white/70 flex-shrink-0" />}
+        {note.priority !== "none" && <span style={{ color: PRIORITY_COLORS[note.priority] }} className="flex-shrink-0">{PRIORITY_ICONS[note.priority]}</span>}
         <button
           type="button"
           className="p-1 rounded hover:bg-white/20 transition-colors"

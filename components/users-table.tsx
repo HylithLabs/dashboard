@@ -16,24 +16,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { toast } from "sonner"
 import axios from "axios"
+import { api } from "@/lib/api"
 
 import {
   Avatar,
   AvatarFallback,
 } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { SearchIcon, UserCogIcon, MailIcon, CalendarIcon } from "lucide-react"
+import { SearchIcon, Trash2Icon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/context/auth-context"
 
 interface User {
   _id: string
   email: string
   role: string
-  createdAt: string
+  createdAt?: string
 }
 
 interface Role {
@@ -42,6 +43,7 @@ interface Role {
 }
 
 export function UsersTable() {
+  const { user: currentUser } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,21 +51,20 @@ export function UsersTable() {
 
   const fetchData = async () => {
     try {
-      const email = localStorage.getItem("email")
       const [usersRes, rolesRes] = await Promise.all([
-        axios.get(`/api/users?email=${email}`),
-        axios.get(`/api/roles?email=${email}`)
+        api.users.getAll(),
+        axios.get(`/api/roles`)
       ])
       
-      if (usersRes.data.success) {
-        setUsers(usersRes.data.data)
+      if (usersRes.success) {
+        setUsers(usersRes.data as User[])
       }
       if (rolesRes.data.success) {
         setRoles(rolesRes.data.data)
       }
     } catch (error) {
       console.error("Error fetching data:", error)
-      toast.error("Failed to fetch user data")
+      toast.error("Failed to fetch users and roles")
     } finally {
       setLoading(false)
     }
@@ -73,9 +74,8 @@ export function UsersTable() {
     fetchData()
   }, [])
 
-  const filteredUsers = users.filter(user => 
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = users.filter((user) =>
+    user.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const handleRoleChange = async (userEmail: string, newRole: string) => {
@@ -86,24 +86,44 @@ export function UsersTable() {
     const loadingToast = toast.loading(`Updating role...`)
     
     try {
-      const adminEmail = localStorage.getItem("email")
-      const response = await axios.put("/api/users", {
-        email: userEmail,
-        role: newRole,
-        adminEmail,
-      })
+      const response = await api.users.updateRole(userEmail, newRole)
 
-      if (response.data.success) {
+      if (response.success) {
         toast.success(`Role updated`, { id: loadingToast })
       } else {
         // Revert on error
         setUsers(previousUsers)
-        toast.error(response.data.message || "Failed to update role", { id: loadingToast })
+        toast.error(response.message || "Failed to update role", { id: loadingToast })
       }
     } catch (error) {
+      console.error("Role update error:", error)
       // Revert on error
       setUsers(previousUsers)
       toast.error("Network error updating role", { id: loadingToast })
+    }
+  }
+
+  const handleDeleteUser = async (userEmail: string) => {
+    if (!confirm(`Are you sure you want to delete user ${userEmail}?`)) return
+
+    const previousUsers = [...users]
+    setUsers(users.filter(u => u.email !== userEmail))
+    
+    const loadingToast = toast.loading(`Deleting user...`)
+    
+    try {
+      const response = await api.users.delete(userEmail)
+
+      if (response.success) {
+        toast.success(`User deleted`, { id: loadingToast })
+      } else {
+        setUsers(previousUsers)
+        toast.error(response.message || "Failed to delete user", { id: loadingToast })
+      }
+    } catch (error) {
+      console.error("User delete error:", error)
+      setUsers(previousUsers)
+      toast.error("Network error deleting user", { id: loadingToast })
     }
   }
 
@@ -139,6 +159,7 @@ export function UsersTable() {
               <TableHead>User</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -202,11 +223,22 @@ export function UsersTable() {
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        disabled={user.email === currentUser?.email || user.email === "jotirmoybhowmik1976@gmail.com"}
+                        onClick={() => handleDeleteUser(user.email)}
+                      >
+                        <Trash2Icon className="size-3.5" />
+                      </Button>
+                    </TableCell>
                   </motion.tr>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="h-24 text-center">
+                  <TableCell colSpan={4} className="h-24 text-center">
                     No results.
                   </TableCell>
                 </TableRow>

@@ -38,8 +38,8 @@ export function NavProjects() {
   }, []);
 
   return (
-    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <div className="flex items-center justify-between px-2 mb-2">
+    <SidebarGroup className="group-data-[collapsible=icon]:hidden ">
+      <div className="flex items-center justify-between px-2 mt-10">
         <SidebarGroupLabel className="text-xs font-normal text-muted-foreground">
           Projects
         </SidebarGroupLabel>

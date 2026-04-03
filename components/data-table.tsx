@@ -12,7 +12,6 @@ import {
   useReactTable,
   type ColumnDef,
   type ColumnFiltersState,
-  type Row,
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table"
@@ -38,7 +37,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -58,7 +56,9 @@ import {
 } from "@/components/ui/table"
 import {
   Tabs,
+  TabsList,
   TabsContent,
+  TabsTrigger,
 } from "@/components/ui/tabs"
 import { 
   CircleCheckIcon, 
@@ -81,9 +81,14 @@ import { NewIssueDialog, type Issue } from "./new-issue-dialog"
 import { useProjects } from "./projects-context"
 import { type Todo } from "@/types"
 import { motion, AnimatePresence } from "framer-motion"
+import { api } from "@/lib/api"
+import { useAuth } from "@/context/auth-context"
+
+type TableViewMode = "default" | "assignments"
+type AssignmentView = "tasks-from-others" | "assigned-by-me"
 
 // Convert Todo to table row format
-function todoToRow(todo: Todo, index: number) {
+function todoToRow(todo: Todo, index: number, counterpartyEmail?: string) {
   return {
     id: index + 1,
     header: todo.title,
@@ -95,6 +100,7 @@ function todoToRow(todo: Todo, index: number) {
     reviewer: "Assign",
     description: todo.description || "",
     projectId: todo.projectId,
+    from: counterpartyEmail || "Self",
     todoId: todo.id,
   }
 }
@@ -183,16 +189,86 @@ const typeColors: Record<string, string> = {
 interface DataTableProps {
   todos: Todo[]
   selectedProjectId?: string | null
+  mode?: TableViewMode
 }
 
-export function DataTable({ todos, selectedProjectId }: DataTableProps) {
-  const { addTodo, deleteTodo, updateTodo, projects } = useProjects()
-  const isMobile = useIsMobile()
+export function DataTable({
+  todos,
+  selectedProjectId,
+  mode = "default",
+}: DataTableProps) {
+  const { user } = useAuth()
+  const { addTodo, deleteTodo, updateTodo } = useProjects()
+  const [assigneeOptions, setAssigneeOptions] = React.useState<string[]>([])
+  const [assignmentView, setAssignmentView] =
+    React.useState<AssignmentView>("tasks-from-others")
+  const [assignedByMeTodos, setAssignedByMeTodos] = React.useState<Todo[]>([])
+  const [isLoadingAssignedByMe, setIsLoadingAssignedByMe] = React.useState(false)
+  const currentUserEmail = user?.email?.toLowerCase() || ""
   
-  // Convert todos to table data
+  const incomingTodos = React.useMemo(
+    () =>
+      todos.filter((todo) => {
+        const assignedByEmail = todo.assignedByEmail?.toLowerCase() || ""
+        return Boolean(assignedByEmail) && assignedByEmail !== currentUserEmail
+      }),
+    [currentUserEmail, todos]
+  )
+
+  const outgoingTodos = React.useMemo(() => {
+    const localAssignedByMe = todos.filter((todo) => {
+      const assignedByEmail = todo.assignedByEmail?.toLowerCase() || ""
+      const assignedToEmail = todo.assignedToEmail?.toLowerCase() || ""
+
+      return (
+        assignedByEmail === currentUserEmail &&
+        Boolean(assignedToEmail) &&
+        assignedToEmail !== currentUserEmail
+      )
+    })
+
+    const mergedTodos = [...localAssignedByMe]
+
+    assignedByMeTodos.forEach((todo) => {
+      if (!mergedTodos.some((currentTodo) => currentTodo.id === todo.id)) {
+        mergedTodos.push(todo)
+      }
+    })
+
+    return mergedTodos
+  }, [assignedByMeTodos, currentUserEmail, todos])
+
+  const visibleTodos = React.useMemo(() => {
+    if (mode !== "assignments") {
+      return todos
+    }
+
+    return assignmentView === "assigned-by-me" ? outgoingTodos : incomingTodos
+  }, [assignmentView, incomingTodos, mode, outgoingTodos, todos])
+
+  const counterpartyLabel =
+    mode === "assignments" && assignmentView === "assigned-by-me" ? "To" : "From"
+
+  const emptyMessage =
+    mode === "assignments"
+      ? assignmentView === "assigned-by-me"
+        ? isLoadingAssignedByMe
+          ? "Loading assigned tasks..."
+          : "No tasks assigned by you yet."
+        : "No tasks from others yet."
+      : "No todos yet. Click \"Add Todo\" to create one."
+
   const data = React.useMemo(() => {
-    return todos.map((todo, index) => todoToRow(todo, index))
-  }, [todos])
+    return visibleTodos.map((todo, index) =>
+      todoToRow(
+        todo,
+        index,
+        mode === "assignments" && assignmentView === "assigned-by-me"
+          ? todo.assignedToEmail || "Self"
+          : todo.assignedByEmail || "Self"
+      )
+    )
+  }, [assignmentView, mode, visibleTodos])
 
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
@@ -203,16 +279,68 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
     pageSize: 10,
   })
 
-  const columns: ColumnDef<typeof data[0]>[] = [
+  React.useEffect(() => {
+    if (selectedProjectId) return
+
+    const loadAssigneeOptions = async () => {
+      const res = await api.users.getOptions()
+      if (!res.success || !Array.isArray(res.data)) return
+
+      setAssigneeOptions(
+        res.data
+          .map((item) => String((item as { email?: string }).email || ""))
+          .filter((email) => email && email !== user?.email)
+      )
+    }
+
+    void loadAssigneeOptions()
+  }, [selectedProjectId, user?.email])
+
+  React.useEffect(() => {
+    if (mode !== "assignments") return
+
+    const loadAssignedByMeTodos = async () => {
+      setIsLoadingAssignedByMe(true)
+      const res = await api.todos.getAssignedByMe()
+
+      if (res.success && Array.isArray(res.data)) {
+        setAssignedByMeTodos(res.data)
+      }
+
+      setIsLoadingAssignedByMe(false)
+    }
+
+    void loadAssignedByMeTodos()
+  }, [mode])
+
+  React.useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    setRowSelection({})
+  }, [assignmentView, mode])
+
+  const syncAssignedByMeTodo = React.useCallback(
+    (todoId: string, updates: Partial<Todo>) => {
+      setAssignedByMeTodos((prev) =>
+        prev.map((todo) => (todo.id === todoId ? { ...todo, ...updates } : todo))
+      )
+    },
+    []
+  )
+
+  const removeAssignedByMeTodo = React.useCallback((todoId: string) => {
+    setAssignedByMeTodos((prev) => prev.filter((todo) => todo.id !== todoId))
+  }, [])
+
+  const columns = React.useMemo<ColumnDef<typeof data[0]>[]>(() => [
     {
       accessorKey: "header",
-      header: "Title",
+      header: () => <div className="pl-4">Title</div>,
       size: 0,
       minSize: 150,
       cell: ({ row }) => {
         const typeClass = typeColors[row.original.type] || typeColors["Todo"];
         return (
-          <div className="flex items-center gap-2 ml-4">
+          <div className="flex items-center gap-2 pl-4">
             <Badge variant="outline" className={`text-xs ${typeClass}`}>
               {row.original.type}
             </Badge>
@@ -223,11 +351,23 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
       enableHiding: false,
     },
     {
+      accessorKey: "from",
+      header: () => <div className="text-right pr-4">{counterpartyLabel}</div>,
+      size: 220,
+      minSize: 180,
+      cell: ({ row }) => (
+        <div className="flex justify-end text-sm text-muted-foreground pr-4">
+          {row.original.from}
+        </div>
+      ),
+      enableHiding: false,
+    },
+    {
       accessorKey: "status",
-      header: () => <div className="text-right pr-[2px]">Status</div>,
+      header: () => <div className="text-right pr-6">Status</div>,
       size: 100,
       minSize: 100,
-      cell: ({ row, table }) => {
+      cell: ({ row }) => {
         const status = statusOptions.find(s => s.value === row.original.status) || statusOptions[2]
         const StatusIcon = status.icon
         
@@ -250,12 +390,17 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
                   <DropdownMenuItem
                     key={option.value}
                     onClick={() => {
-                      if (row.original.projectId && row.original.todoId) {
+                      if (row.original.todoId) {
                         updateTodo(
-                          row.original.projectId,
+                          row.original.projectId ?? null,
                           row.original.todoId,
                           { status: reverseMapStatus(option.value) }
                         )
+                        if (mode === "assignments" && assignmentView === "assigned-by-me") {
+                          syncAssignedByMeTodo(row.original.todoId, {
+                            status: reverseMapStatus(option.value),
+                          })
+                        }
                         toast.success(`Status updated to ${option.label}`)
                       }
                     }}
@@ -275,7 +420,7 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
     },
     {
       accessorKey: "priority",
-      header: () => <div className="text-right">Priority</div>,
+      header: () => <div className="text-right pr-4">Priority</div>,
       size: 60,
       minSize: 60,
       cell: ({ row }) => {
@@ -300,12 +445,17 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
                     <DropdownMenuItem
                       key={option.value}
                       onClick={() => {
-                        if (row.original.projectId && row.original.todoId) {
+                        if (row.original.todoId) {
                           updateTodo(
-                            row.original.projectId,
+                            row.original.projectId ?? null,
                             row.original.todoId,
                             { priority: reverseMapPriority(option.value) }
                           )
+                          if (mode === "assignments" && assignmentView === "assigned-by-me") {
+                            syncAssignedByMeTodo(row.original.todoId, {
+                              priority: reverseMapPriority(option.value),
+                            })
+                          }
                           toast.success(`Priority updated to ${option.label}`)
                         }
                       }}
@@ -341,7 +491,7 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
             </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-32">
             <DropdownMenuItem onClick={() => {
-              const openDrawer = (window as any)[`open-drawer-${row.original.id}`]
+              const openDrawer = (window as unknown as Record<string, () => void>)[`open-drawer-${row.original.id}`]
               if (openDrawer) openDrawer()
             }}>Edit</DropdownMenuItem>
             <DropdownMenuItem onClick={() => toast.success("Duplicated")}>Make a copy</DropdownMenuItem>
@@ -349,7 +499,10 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
             <DropdownMenuItem 
               variant="destructive" 
               onClick={() => {
-                deleteTodo(row.original.projectId, row.original.todoId)
+                deleteTodo(row.original.projectId ?? null, row.original.todoId)
+                if (mode === "assignments" && assignmentView === "assigned-by-me") {
+                  removeAssignedByMeTodo(row.original.todoId)
+                }
                 toast.success("Deleted")
               }}
             >
@@ -360,7 +513,21 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
         </div>
       ),
     },
-  ]
+  ].filter((column) => {
+    if ("accessorKey" in column && column.accessorKey === "from") {
+      return !selectedProjectId
+    }
+    return true
+  }), [
+    assignmentView,
+    counterpartyLabel,
+    deleteTodo,
+    mode,
+    removeAssignedByMeTodo,
+    selectedProjectId,
+    syncAssignedByMeTodo,
+    updateTodo,
+  ])
 
   const table = useReactTable({
     data,
@@ -391,11 +558,27 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
     },
   })
 
+  const tabsValue = mode === "assignments" ? assignmentView : "table"
+
   return (
-    <Tabs defaultValue="outline" className="w-full flex-col justify-start gap-6">
+    <Tabs
+      value={tabsValue}
+      onValueChange={(value) => {
+        if (mode === "assignments" && (value === "tasks-from-others" || value === "assigned-by-me")) {
+          setAssignmentView(value)
+        }
+      }}
+      className="w-full flex-col justify-start gap-6"
+    >
       <div className="flex items-center justify-between  ">
         <Label htmlFor="view-selector" className="sr-only">View</Label>
         <div className="flex items-center gap-2 w-full">
+          {mode === "assignments" && (
+            <TabsList variant="line" className="h-10">
+              <TabsTrigger value="tasks-from-others">Tasks from others</TabsTrigger>
+              <TabsTrigger value="assigned-by-me">Assigned by me</TabsTrigger>
+            </TabsList>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="outline" size="sm" />}
@@ -421,17 +604,18 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
           <div className="flex-1"></div>
           <NewIssueDialog 
             onIssueCreated={(issue: Issue) => {
-              const targetProjectId = selectedProjectId || projects[0]?.id
-              if (targetProjectId) {
-                addTodo(targetProjectId, {
-                  title: issue.title,
-                  description: issue.description,
-                  status: "in-progress",
-                  priority: issue.priority,
-                })
-                toast.success("Todo added")
-              }
+              const targetProjectId = selectedProjectId || null
+              void addTodo(targetProjectId, {
+                title: issue.title,
+                description: issue.description,
+                status: "in-progress",
+                priority: issue.priority,
+                assignedToEmail: issue.assignedToEmail,
+                assignedByEmail: user?.email,
+              })
             }}
+            showAssigneeField={!selectedProjectId}
+            assigneeOptions={assigneeOptions}
           >
             <Button variant="outline" size="sm">
               <PlusIcon />
@@ -440,7 +624,7 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
           </NewIssueDialog>
         </div>
       </div>
-      <TabsContent value="outline" className="relative flex flex-col gap-4 overflow-auto ">
+      <TabsContent value={tabsValue} className="relative flex flex-col gap-4 overflow-auto ">
         <div className="overflow-hidden rounded-lg border">
           <Table className="w-full">
             <TableHeader className="sticky top-0 z-10 bg-muted">
@@ -493,7 +677,7 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                      No todos yet. Click "Add Todo" to create one.
+                      {emptyMessage}
                     </TableCell>
                   </TableRow>
                 )}
@@ -543,14 +727,26 @@ export function DataTable({ todos, selectedProjectId }: DataTableProps) {
   )
 }
 
-function TodoViewDrawer({ item, open, onOpenChange }: { item: any, open?: boolean, onOpenChange?: (open: boolean) => void }) {
+interface TableRowItem {
+  id: number
+  header: string
+  type: string
+  status: string
+  priority: string
+  from?: string
+  description: string
+  projectId?: string | null
+  todoId: string
+}
+
+function TodoViewDrawer({ item, open, onOpenChange }: { item: TableRowItem, open?: boolean, onOpenChange?: (open: boolean) => void }) {
   const isMobile = useIsMobile()
   const [desc, setDesc] = React.useState(item.description || "")
   const { updateTodo } = useProjects()
 
   const handleSave = () => {
-    if (item.projectId && item.todoId) {
-      updateTodo(item.projectId, item.todoId, { description: desc })
+    if (item.todoId) {
+      updateTodo(item.projectId ?? null, item.todoId, { description: desc })
       toast.success("Todo updated")
     }
     onOpenChange?.(false)
@@ -584,15 +780,15 @@ function TodoViewDrawer({ item, open, onOpenChange }: { item: any, open?: boolea
   )
 }
 
-function TableCellViewer({ item }: { item: any }) {
+function TableCellViewer({ item }: { item: TableRowItem }) {
   const [open, setOpen] = React.useState(false)
   
   // Expose the open function globally for the edit menu
   React.useEffect(() => {
     const key = `open-drawer-${item.id}`
-    ;(window as any)[key] = () => setOpen(true)
+    ;(window as unknown as Record<string, () => void>)[key] = () => setOpen(true)
     return () => {
-      delete (window as any)[key]
+      delete (window as unknown as Record<string, unknown>)[key]
     }
   }, [item.id])
   

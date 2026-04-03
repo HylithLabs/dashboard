@@ -1,10 +1,9 @@
 import getClientPromise from "@/lib/mongodb"
 import { z } from "zod"
-import { ObjectId } from "mongodb"
+import { getSession } from "@/lib/auth"
 
 const canvasMetadataSchema = z.object({
   projectId: z.string().min(1),
-  userEmail: z.string().email().optional(),
   metadata: z.object({
     connections: z.array(z.any()).optional().default([]),
     camera: z.object({ x: z.number(), y: z.number() }).optional(),
@@ -14,9 +13,13 @@ const canvasMetadataSchema = z.object({
 
 export async function GET(req: Request) {
   try {
+    const session = await getSession(req)
+    if (!session) {
+      return Response.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    }
+
     const url = new URL(req.url)
     const projectId = url.searchParams.get("projectId")
-    const userEmail = url.searchParams.get("userEmail")
 
     if (!projectId) {
       return Response.json({ success: false, message: "projectId required" }, { status: 400 })
@@ -25,17 +28,13 @@ export async function GET(req: Request) {
     const client = await getClientPromise()
     const db = client.db("hylithhub")
 
-    const query: any = { projectId }
-    if (userEmail) query.userEmail = userEmail
+    const query = { projectId, userEmail: session.email }
 
-    // 1. Fetch all notes for this project
     const notes = await db.collection("notes").find(query).toArray()
-    
-    // 2. Fetch canvas metadata
     const metadataDoc = await db.collection("canvas_metadata").findOne(query)
 
     const snapshot = {
-      notes: notes.map(n => ({ ...n, id: n._id.toString() })),
+      notes: notes.map((n) => ({ ...n, id: n._id.toString() })),
       metadata: metadataDoc?.metadata || {
         connections: [],
         camera: { x: 0, y: 0 },
@@ -43,17 +42,20 @@ export async function GET(req: Request) {
       },
     }
 
-    return Response.json({
-      success: true,
-      data: snapshot,
-    })
+    return Response.json({ success: true, data: snapshot })
   } catch (error) {
+    console.error("Fetch project data error:", error)
     return Response.json({ success: false, message: "Failed to fetch project data" }, { status: 500 })
   }
 }
 
 export async function POST(req: Request) {
   try {
+    const session = await getSession(req)
+    if (!session) {
+      return Response.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await req.json()
     const parsed = canvasMetadataSchema.parse(body)
 
@@ -61,10 +63,7 @@ export async function POST(req: Request) {
     const db = client.db("hylithhub")
 
     const now = new Date()
-    const query = {
-      projectId: parsed.projectId,
-      userEmail: parsed.userEmail,
-    }
+    const query = { projectId: parsed.projectId, userEmail: session.email }
 
     const existingMetadata = await db.collection("canvas_metadata").findOne(query)
 
@@ -75,7 +74,8 @@ export async function POST(req: Request) {
       )
     } else {
       await db.collection("canvas_metadata").insertOne({
-        ...parsed,
+        ...query,
+        metadata: parsed.metadata,
         createdAt: now,
         updatedAt: now,
       })

@@ -13,6 +13,7 @@ import { useState } from "react";
 import axios from "axios";
 import { toast } from "sonner"; 
 import {useRouter} from "next/navigation";
+import Image from "next/image";
 
 
 
@@ -26,19 +27,14 @@ export function LoginForm({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const response = await axios.post("/api/users", { email, password } , {
-        method: "POST",
-      }); 
+      const response = await axios.post("/api/auth/login", { email, password });
       if(response.data.success) {
-        localStorage.setItem('email', response.data.data.email); 
-        localStorage.setItem('role', response.data.data.role);
-        sessionStorage.setItem('justLoggedIn', 'true');
-        
         router.push("/dashboard")
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
+      console.error("Login error:", error);
       toast.error("Failed to login");
     }
   };
@@ -107,9 +103,10 @@ export function LoginForm({
             </FieldGroup>
           </form>
           <div className="relative hidden bg-muted md:block">
-            <img
+            <Image
               src="/placeholder.svg"
               alt="Image"
+              fill
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
             />
           </div>

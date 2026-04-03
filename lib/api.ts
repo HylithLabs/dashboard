@@ -1,4 +1,4 @@
-import { ApiResponse } from "@/types"
+import { ApiResponse, Todo } from "@/types"
 import { NoteBox, CanvasSnapshot, CanvasMetadata } from "@/types/canvas"
 
 export async function apiFetch<T>(
@@ -8,6 +8,12 @@ export async function apiFetch<T>(
   try {
     const response = await fetch(url, options)
     const json = await response.json()
+    if (!response.ok) {
+      return {
+        success: false,
+        message: json.message || `API error: ${response.status} ${response.statusText}`,
+      }
+    }
     return json
   } catch (error) {
     console.error(`API Fetch Error (${url}):`, error)
@@ -20,27 +26,29 @@ export async function apiFetch<T>(
 
 export const api = {
   projects: {
-    getAll: (email?: string) => 
-      apiFetch<any[]>(`/api/projects${email ? `?email=${encodeURIComponent(email)}` : ""}`),
-    create: (name: string, userEmail?: string) =>
-      apiFetch<any>("/api/projects", {
+    getAll: () => 
+      apiFetch<unknown[]>(`/api/projects`),
+    create: (name: string) =>
+      apiFetch<unknown>("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, userEmail }),
+        body: JSON.stringify({ name }),
       }),
     delete: (id: string) =>
       apiFetch<void>(`/api/projects?id=${id}`, { method: "DELETE" }),
   },
   todos: {
-    getAll: (userEmail?: string) =>
-      apiFetch<any[]>(`/api/todos${userEmail ? `?userEmail=${encodeURIComponent(userEmail)}` : ""}`),
-    create: (todo: any) =>
-      apiFetch<any>("/api/todos", {
+    getAll: () =>
+      apiFetch<unknown[]>(`/api/todos`),
+    getAssignedByMe: () =>
+      apiFetch<Todo[]>(`/api/todos?mode=assigned-by-me`),
+    create: (todo: Record<string, unknown>) =>
+      apiFetch<unknown>("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(todo),
       }),
-    update: (id: string, updates: any) =>
+    update: (id: string, updates: Record<string, unknown>) =>
       apiFetch<void>("/api/todos", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -51,8 +59,8 @@ export const api = {
   },
   notes: {
     // Unified API for all notes
-    getAll: (projectId: string | null, userEmail?: string) =>
-      apiFetch<CanvasSnapshot>(`/api/notes?projectId=${projectId}${userEmail ? `&userEmail=${encodeURIComponent(userEmail)}` : ""}`),
+    getAll: (projectId: string | null) =>
+      apiFetch<CanvasSnapshot>(`/api/notes?projectId=${projectId}`),
     
     create: (note: Partial<NoteBox>) =>
       apiFetch<NoteBox>("/api/simple-notes", {
@@ -72,11 +80,11 @@ export const api = {
       apiFetch<void>(`/api/simple-notes?id=${id}`, { method: "DELETE" }),
 
     // Batch update for note positions/metadata
-    saveCanvasMetadata: (projectId: string | null, userEmail: string, metadata: CanvasMetadata) =>
+    saveCanvasMetadata: (projectId: string | null, metadata: CanvasMetadata) =>
       apiFetch<void>("/api/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, userEmail, metadata }),
+        body: JSON.stringify({ projectId, metadata }),
       }),
     
     batchUpdateNotes: (notes: NoteBox[]) =>
@@ -88,16 +96,35 @@ export const api = {
   },
   // simpleNotes endpoint now just an alias for standard note CRUD
   simpleNotes: {
-    getAll: (projectId?: string | null, userEmail?: string) => {
+    getAll: (projectId?: string | null) => {
       let url = "/api/simple-notes"
       const params = new URLSearchParams()
       if (projectId) params.append("projectId", projectId)
-      if (userEmail) params.append("userEmail", userEmail)
       if (params.toString()) url += `?${params.toString()}`
       return apiFetch<NoteBox[]>(url)
     },
-    create: (note: any) => api.notes.create(note),
-    update: (id: string, updates: any) => api.notes.update(id, updates),
+    create: (note: Partial<NoteBox>) => api.notes.create(note),
+    update: (id: string, updates: Partial<NoteBox>) => api.notes.update(id, updates),
     delete: (id: string) => api.notes.delete(id),
+  },
+  users: {
+    getAll: () =>
+      apiFetch<unknown[]>("/api/users"),
+    getOptions: () =>
+      apiFetch<unknown[]>("/api/users?mode=options"),
+    create: (user: Record<string, unknown>) =>
+      apiFetch<unknown>("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(user),
+      }),
+    updateRole: (email: string, role: string) =>
+      apiFetch<void>("/api/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, role }),
+      }),
+    delete: (email: string) =>
+      apiFetch<void>(`/api/users?email=${email}`, { method: "DELETE" }),
   }
 }

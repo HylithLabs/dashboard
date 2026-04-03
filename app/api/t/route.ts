@@ -1,9 +1,13 @@
 import getClientPromise from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { getSession } from "@/lib/auth"
 
 export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const email = url.searchParams.get("email")
+  const session = await getSession(req)
+  if (!session) {
+    return Response.json({ success: false, message: "Unauthorized" }, { status: 401 })
+  }
+  const email = session.email
 
   if (!email) {
     return Response.json({ success: false, message: "Email required" })
@@ -24,7 +28,12 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const { text, email } = body
+  const { text } = body
+  const session = await getSession(req)
+  if (!session) {
+    return Response.json({ success: false, message: "Unauthorized" }, { status: 401 })
+  }
+  const email = session.email
 
   if (!text || !email) {
     return Response.json({ success: false, message: "Text and email required" })
